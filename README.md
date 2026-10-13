@@ -41,3 +41,7 @@ See [docs/MVP_SPEC.md](docs/MVP_SPEC.md) for the agreed feature scope.
 5. Add consent-aware AdMob integration.
 6. Add Google Play subscriptions, entitlement verification and restore purchases.
 7. Complete privacy, health-app declaration, testing and release checks.
+
+
+## Automated build
+GitHub Actions workflow: `.github/workflows/android-ci.yml`. Pushes to `main` run Flutter analysis, widget tests, and attempt a debug APK build; the APK is uploaded as a workflow artifact when successful.
