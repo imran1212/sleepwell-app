@@ -224,18 +224,28 @@ class _SleepShellState extends State<SleepShell> {
   ]));
 
   Widget _stepTile(RoutineStep s, {bool large = false}) => Container(
-    margin: const EdgeInsets.only(bottom: 10), decoration: _decoration(),
-    child: CheckboxListTile(value: s.done, onChanged: (v) => setState(() => s.done = v ?? false),
-      controlAffinity: ListTileControlAffinity.leading, activeColor: violet, contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-      secondary: Container(width: 42, height: 42, decoration: BoxDecoration(color: violet.withValues(alpha: .16), borderRadius: BorderRadius.circular(14)), child: Icon(s.icon, color: lilac)),
-      title: Text(s.title, style: TextStyle(fontWeight: FontWeight.w600, decoration: s.done ? TextDecoration.lineThrough : null)),
-      subtitle: Text(large ? s.subtitle + ' • 5 min' : s.subtitle, style: const TextStyle(color: Colors.white54, fontSize: 12))),
+    margin: const EdgeInsets.only(bottom: 10),
+    child: Material(
+      color: card,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: CheckboxListTile(value: s.done, onChanged: (v) => setState(() => s.done = v ?? false),
+        controlAffinity: ListTileControlAffinity.leading, activeColor: violet, contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        secondary: Container(width: 42, height: 42, decoration: BoxDecoration(color: violet.withValues(alpha: .16), borderRadius: BorderRadius.circular(14)), child: Icon(s.icon, color: lilac)),
+        title: Text(s.title, style: TextStyle(fontWeight: FontWeight.w600, decoration: s.done ? TextDecoration.lineThrough : null)),
+        subtitle: Text(large ? s.subtitle + ' • 5 min' : s.subtitle, style: const TextStyle(color: Colors.white54, fontSize: 12))),
+    ),
   );
 
   Widget _action(IconData icon, String title, String subtitle, VoidCallback onTap) => Container(
-    margin: const EdgeInsets.only(bottom: 10), decoration: _decoration(),
-    child: ListTile(onTap: onTap, leading: Container(width: 44, height: 44, decoration: BoxDecoration(color: violet.withValues(alpha: .16), borderRadius: BorderRadius.circular(14)), child: Icon(icon, color: lilac)),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)), subtitle: Text(subtitle, style: const TextStyle(color: Colors.white54, fontSize: 12)), trailing: const Icon(Icons.chevron_right, color: Colors.white54)),
+    margin: const EdgeInsets.only(bottom: 10),
+    child: Material(
+      color: card,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: ListTile(onTap: onTap, leading: Container(width: 44, height: 44, decoration: BoxDecoration(color: violet.withValues(alpha: .16), borderRadius: BorderRadius.circular(14)), child: Icon(icon, color: lilac)),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)), subtitle: Text(subtitle, style: const TextStyle(color: Colors.white54, fontSize: 12)), trailing: const Icon(Icons.chevron_right, color: Colors.white54)),
+    ),
   );
 
   Widget _metric(String label, String value, IconData icon, Color color) => Container(
