@@ -1,0 +1,21 @@
+workflows:
+  sleepwell-android-debug:
+    name: SleepWell Android Debug APK
+    max_build_duration: 60
+    environment:
+      flutter: stable
+    scripts:
+      - name: Generate Android platform scaffold
+        script: |
+          flutter create --platforms=android --project-name sleepwell_app --overwrite /tmp/sleepwell_platform
+          cp -R /tmp/sleepwell_platform/android ./android
+      - name: Get Flutter packages
+        script: flutter pub get
+      - name: Analyze Dart code
+        script: flutter analyze
+      - name: Run tests
+        script: flutter test
+      - name: Build debug APK
+        script: flutter build apk --debug
+    artifacts:
+      - build/app/outputs/flutter-apk/app-debug.apk
