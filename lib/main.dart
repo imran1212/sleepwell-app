@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() => runApp(const SleepWellApp());
 
@@ -25,11 +28,11 @@ class SleepWellApp extends StatelessWidget {
 }
 
 class RoutineStep {
-  RoutineStep(this.title, this.subtitle, this.icon);
+  RoutineStep(this.title, this.subtitle, this.icon, {this.done = false});
   final String title;
   final String subtitle;
   final IconData icon;
-  bool done = false;
+  bool done;
 }
 
 class SleepShell extends StatefulWidget {
@@ -40,12 +43,16 @@ class SleepShell extends StatefulWidget {
 
 class _SleepShellState extends State<SleepShell> {
   bool started = false;
+  bool loadingSavedData = true;
+  bool reminders = true;
   int tab = 0;
   int quality = 3;
   int mood = 1;
-  bool reminders = true;
+  String bedtime = '10:30 PM';
   final note = TextEditingController();
-  final steps = <RoutineStep>[
+  final List<Map<String, dynamic>> diaryEntries = [];
+  final Map<String, int> dailyCompletions = {};
+  late List<RoutineStep> steps = <RoutineStep>[
     RoutineStep('Put your phone away', 'Give your mind a screen break', Icons.phone_iphone),
     RoutineStep('Breathe slowly', 'A few calm, gentle breaths', Icons.air),
     RoutineStep('Listen and unwind', 'Choose a calming sound', Icons.music_note),
@@ -53,11 +60,84 @@ class _SleepShellState extends State<SleepShell> {
     RoutineStep('Lights out', 'Let the day come to a close', Icons.nightlight_round),
   ];
   int get completed => steps.where((s) => s.done).length;
+  String get todayKey {
+    final now = DateTime.now();
+    return '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedData();
+  }
+
+  Future<void> _loadSavedData() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    final savedSteps = prefs.getString('routine_steps_v1');
+    if (savedSteps != null) {
+      try {
+        final decoded = jsonDecode(savedSteps) as List<dynamic>;
+        steps = decoded.map((item) {
+          final map = Map<String, dynamic>.from(item as Map);
+          final title = map['title'] as String? ?? 'Routine step';
+          final subtitle = map['subtitle'] as String? ?? 'Your custom routine step';
+          final done = map['done'] as bool? ?? false;
+          final code = map['icon'] as int? ?? Icons.check_circle_outline.codePoint;
+          return RoutineStep(title, subtitle, IconData(code, fontFamily: 'MaterialIcons'), done: done);
+        }).toList();
+      } catch (_) {
+        // Ignore malformed local data and keep the safe default routine.
+      }
+    }
+    started = prefs.getBool('onboarding_done_v1') ?? false;
+    bedtime = prefs.getString('bedtime_v1') ?? '10:30 PM';
+    reminders = prefs.getBool('bedtime_reminders_v1') ?? true;
+    final savedDiary = prefs.getString('sleep_diary_v1');
+    if (savedDiary != null) {
+      try {
+        diaryEntries.addAll((jsonDecode(savedDiary) as List<dynamic>).map((e) => Map<String, dynamic>.from(e as Map)));
+        if (diaryEntries.isNotEmpty) {
+          final latest = diaryEntries.last;
+          quality = latest['quality'] as int? ?? quality;
+          mood = latest['mood'] as int? ?? mood;
+          note.text = latest['note'] as String? ?? '';
+        }
+      } catch (_) {}
+    }
+    final savedCompletions = prefs.getString('daily_completions_v1');
+    if (savedCompletions != null) {
+      try {
+        final decoded = Map<String, dynamic>.from(jsonDecode(savedCompletions) as Map);
+        decoded.forEach((key, value) { if (value is int) dailyCompletions[key] = value; });
+      } catch (_) {}
+    }
+    if (mounted) setState(() => loadingSavedData = false);
+  }
+
+  Future<void> _saveRoutine() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('routine_steps_v1', jsonEncode(steps.map((s) => {
+      'title': s.title, 'subtitle': s.subtitle, 'icon': s.icon.codePoint, 'done': s.done,
+    }).toList()));
+    dailyCompletions[todayKey] = completed;
+    await prefs.setString('daily_completions_v1', jsonEncode(dailyCompletions));
+  }
+
+  Future<void> _savePreference(String key, Object value) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (value is bool) await prefs.setBool(key, value);
+    if (value is String) await prefs.setString(key, value);
+  }
+
   @override
   void dispose() { note.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
+    if (loadingSavedData) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
     if (!started) return _welcome();
     final pages = [_home(), _routine(), _relax(), _diary(), _progress()];
     return Scaffold(
@@ -93,7 +173,7 @@ class _SleepShellState extends State<SleepShell> {
           const SizedBox(height: 18),
           const Text('Build a better bedtime routine,\none night at a time.', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, height: 1.5, color: Colors.white70)),
           const Spacer(),
-          _button('Get started', () => setState(() => started = true)),
+          _button('Get started', () { setState(() => started = true); _savePreference('onboarding_done_v1', true); }),
           const SizedBox(height: 14),
           const Text('A calmer end to your day', style: TextStyle(color: Colors.white54, fontSize: 12)),
         ]),
@@ -129,7 +209,7 @@ class _SleepShellState extends State<SleepShell> {
     child: Row(children: [
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('YOUR BEDTIME', style: TextStyle(fontSize: 11, letterSpacing: 1.5, color: Colors.white70)),
-        const SizedBox(height: 8), const Text('10:30 PM', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 8), const Text(bedtime, style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800)),
         const SizedBox(height: 5), const Text('Make room for rest', style: TextStyle(color: Colors.white70)),
         TextButton.icon(onPressed: _editBedtime, icon: const Icon(Icons.edit_outlined, size: 16), label: const Text('Edit bedtime'), style: TextButton.styleFrom(foregroundColor: Colors.white, padding: EdgeInsets.zero)),
       ])),
@@ -146,7 +226,7 @@ class _SleepShellState extends State<SleepShell> {
       Text((completed / steps.length * 100).round().toString() + '%', style: const TextStyle(color: mint, fontWeight: FontWeight.bold)),
     ])),
     const SizedBox(height: 16), ...steps.map((s) => _stepTile(s, large: true)),
-    _button('Reset tonight’s checklist', () => setState(() { for (final s in steps) { s.done = false; } })),
+    _button('Reset tonight’s checklist', () { setState(() { for (final s in steps) { s.done = false; } }); _saveRoutine(); }),
     const SizedBox(height: 10), _outline('Add a custom step', _addStep),
   ]));
 
@@ -188,7 +268,7 @@ class _SleepShellState extends State<SleepShell> {
     const SizedBox(height: 24), const Text('A note for yourself (optional)', style: TextStyle(fontWeight: FontWeight.w600)),
     const SizedBox(height: 10),
     TextField(controller: note, maxLines: 4, decoration: InputDecoration(hintText: 'What would you like to remember?', filled: true, fillColor: card, border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none))),
-    const SizedBox(height: 20), _button('Save check-in', () => _snack('Diary UI ready. Local data saving is a next step.')),
+    const SizedBox(height: 20), _button('Save check-in', _saveDiaryEntry),
     const SizedBox(height: 14), const Text('For personal reflection, not medical diagnosis.', style: TextStyle(fontSize: 12, color: Colors.white54)),
   ]));
 
@@ -203,13 +283,16 @@ class _SleepShellState extends State<SleepShell> {
     const SizedBox(height: 16),
     Container(width: double.infinity, padding: const EdgeInsets.all(20), decoration: _decoration(), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const Text('This week', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-      const SizedBox(height: 6), const Text('Illustrative routine completion preview', style: TextStyle(color: Colors.white60, fontSize: 12)),
+      const SizedBox(height: 6), const Text('Completed routine steps by day', style: TextStyle(color: Colors.white60, fontSize: 12)),
       const SizedBox(height: 22),
       SizedBox(height: 150, child: Row(crossAxisAlignment: CrossAxisAlignment.end, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: List.generate(7, (i) {
-        final heights = [42.0, 70.0, 56.0, 90.0, 62.0, 104.0, completed * 18.0 + 12];
+        final now = DateTime.now();
+        final day = DateTime(now.year, now.month, now.day).subtract(Duration(days: 6 - i));
+        final key = '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+        final heights = (dailyCompletions[key] ?? (key == todayKey ? completed : 0)) * 22.0 + 8;
         const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
         return Column(mainAxisAlignment: MainAxisAlignment.end, children: [
-          Container(width: 22, height: heights[i].clamp(12, 120).toDouble(), decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), gradient: const LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Color(0xFF6558DA), lilac]))),
+          Container(width: 22, height: heights.clamp(8, 120).toDouble(), decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), gradient: const LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Color(0xFF6558DA), lilac]))),
           const SizedBox(height: 8), Text(labels[i], style: const TextStyle(color: Colors.white54, fontSize: 11)),
         ]);
       }))),
@@ -229,7 +312,7 @@ class _SleepShellState extends State<SleepShell> {
       color: card,
       borderRadius: BorderRadius.circular(20),
       clipBehavior: Clip.antiAlias,
-      child: CheckboxListTile(value: s.done, onChanged: (v) => setState(() => s.done = v ?? false),
+      child: CheckboxListTile(value: s.done, onChanged: (v) { setState(() => s.done = v ?? false); _saveRoutine(); },
         controlAffinity: ListTileControlAffinity.leading, activeColor: violet, contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
         secondary: Container(width: 42, height: 42, decoration: BoxDecoration(color: violet.withValues(alpha: .16), borderRadius: BorderRadius.circular(14)), child: Icon(s.icon, color: lilac)),
         title: Text(s.title, style: TextStyle(fontWeight: FontWeight.w600, decoration: s.done ? TextDecoration.lineThrough : null)),
@@ -270,7 +353,7 @@ class _SleepShellState extends State<SleepShell> {
         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
         FilledButton(onPressed: () {
           final value = controller.text.trim();
-          if (value.isNotEmpty) setState(() => steps.insert(steps.length - 1, RoutineStep(value, 'Your custom routine step', Icons.check_circle_outline)));
+          if (value.isNotEmpty) { setState(() => steps.insert(steps.length - 1, RoutineStep(value, 'Your custom routine step', Icons.check_circle_outline))); _saveRoutine(); }
           Navigator.pop(ctx);
         }, child: const Text('Add')),
       ]));
@@ -278,14 +361,14 @@ class _SleepShellState extends State<SleepShell> {
 
   void _editBedtime() {
     showTimePicker(context: context, initialTime: const TimeOfDay(hour: 22, minute: 30))
-      .then((t) { if (t != null && mounted) _snack('Bedtime selected: ' + t.format(context) + '. Saving comes next.'); });
+       .then((t) { if (t != null && mounted) { final value = t.format(context); setState(() => bedtime = value); _savePreference('bedtime_v1', value); _snack('Bedtime saved: ' + value); } });
   }
 
   void _settings() {
     showModalBottomSheet(context: context, backgroundColor: card, showDragHandle: true, builder: (ctx) => StatefulBuilder(builder: (ctx, updateSheet) => Padding(
       padding: const EdgeInsets.fromLTRB(22, 8, 22, 30), child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('Settings', style: TextStyle(fontSize: 23, fontWeight: FontWeight.bold)),
-        SwitchListTile(title: const Text('Bedtime reminders'), subtitle: const Text('Scheduling will be connected next'), value: reminders, onChanged: (v) { setState(() => reminders = v); updateSheet(() {}); }),
+        SwitchListTile(title: const Text('Bedtime reminders'), subtitle: const Text('Scheduling will be connected next'), value: reminders, onChanged: (v) { setState(() => reminders = v); _savePreference('bedtime_reminders_v1', v); updateSheet(() {}); }),
         ListTile(leading: const Icon(Icons.workspace_premium_outlined), title: const Text('SleepWell Premium'), onTap: () { Navigator.pop(ctx); _premium(); }),
         const ListTile(leading: Icon(Icons.privacy_tip_outlined), title: Text('Privacy'), subtitle: Text('Privacy policy will be linked before release')),
       ]),
@@ -307,6 +390,27 @@ class _SleepShellState extends State<SleepShell> {
         const SizedBox(height: 10), const Text('Preview only — no payment is taken in this template.', style: TextStyle(fontSize: 11, color: Colors.white54)),
       ]),
     ));
+  }
+
+  Future<void> _saveDiaryEntry() async {
+    final entry = <String, dynamic>{
+      'date': todayKey,
+      'quality': quality,
+      'mood': mood,
+      'note': note.text.trim(),
+      'savedAt': DateTime.now().toIso8601String(),
+    };
+    final existingIndex = diaryEntries.indexWhere((e) => e['date'] == todayKey);
+    setState(() {
+      if (existingIndex >= 0) {
+        diaryEntries[existingIndex] = entry;
+      } else {
+        diaryEntries.add(entry);
+      }
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('sleep_diary_v1', jsonEncode(diaryEntries));
+    if (mounted) _snack('Sleep diary saved on this device.');
   }
 
   void _snack(String message) {
