@@ -209,7 +209,7 @@ class _SleepShellState extends State<SleepShell> {
         final heights = [42.0, 70.0, 56.0, 90.0, 62.0, 104.0, completed * 18.0 + 12];
         const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
         return Column(mainAxisAlignment: MainAxisAlignment.end, children: [
-          Container(width: 22, height: heights[i].clamp(12, 120), decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), gradient: const LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Color(0xFF6558DA), lilac]))),
+          Container(width: 22, height: heights[i].clamp(12, 120).toDouble(), decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), gradient: const LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Color(0xFF6558DA), lilac]))),
           const SizedBox(height: 8), Text(labels[i], style: const TextStyle(color: Colors.white54, fontSize: 11)),
         ]);
       }))),
