@@ -90,6 +90,10 @@ class _SleepShellState extends State<SleepShell> {
         // Ignore malformed local data and keep the safe default routine.
       }
     }
+    final savedRoutineDate = prefs.getString('routine_completed_date_v1');
+    if (savedRoutineDate != null && savedRoutineDate != todayKey) {
+      for (final step in steps) { step.done = false; }
+    }
     started = prefs.getBool('onboarding_done_v1') ?? false;
     bedtime = prefs.getString('bedtime_v1') ?? '10:30 PM';
     reminders = prefs.getBool('bedtime_reminders_v1') ?? true;
@@ -121,6 +125,7 @@ class _SleepShellState extends State<SleepShell> {
       'title': s.title, 'subtitle': s.subtitle, 'icon': s.icon.codePoint, 'done': s.done,
     }).toList()));
     dailyCompletions[todayKey] = completed;
+    await prefs.setString('routine_completed_date_v1', todayKey);
     await prefs.setString('daily_completions_v1', jsonEncode(dailyCompletions));
   }
 
