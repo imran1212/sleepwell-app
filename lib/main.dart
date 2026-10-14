@@ -71,6 +71,19 @@ class _SleepShellState extends State<SleepShell> {
     _loadSavedData();
   }
 
+  IconData _iconFromCode(int code) {
+    const knownIcons = <int, IconData>{
+      0xe8b8: Icons.settings_outlined,
+    };
+    if (code == Icons.phone_iphone.codePoint) return Icons.phone_iphone;
+    if (code == Icons.air.codePoint) return Icons.air;
+    if (code == Icons.music_note.codePoint) return Icons.music_note;
+    if (code == Icons.menu_book.codePoint) return Icons.menu_book;
+    if (code == Icons.nightlight_round.codePoint) return Icons.nightlight_round;
+    if (code == Icons.check_circle_outline.codePoint) return Icons.check_circle_outline;
+    return knownIcons[code] ?? Icons.check_circle_outline;
+  }
+
   Future<void> _loadSavedData() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
@@ -84,7 +97,7 @@ class _SleepShellState extends State<SleepShell> {
           final subtitle = map['subtitle'] as String? ?? 'Your custom routine step';
           final done = map['done'] as bool? ?? false;
           final code = map['icon'] as int? ?? Icons.check_circle_outline.codePoint;
-          return RoutineStep(title, subtitle, IconData(code, fontFamily: 'MaterialIcons'), done: done);
+          return RoutineStep(title, subtitle, _iconFromCode(code), done: done);
         }).toList();
       } catch (_) {
         // Ignore malformed local data and keep the safe default routine.
@@ -214,7 +227,7 @@ class _SleepShellState extends State<SleepShell> {
     child: Row(children: [
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('YOUR BEDTIME', style: TextStyle(fontSize: 11, letterSpacing: 1.5, color: Colors.white70)),
-        const SizedBox(height: 8), const Text(bedtime, style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 8), Text(bedtime, style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800)),
         const SizedBox(height: 5), const Text('Make room for rest', style: TextStyle(color: Colors.white70)),
         TextButton.icon(onPressed: _editBedtime, icon: const Icon(Icons.edit_outlined, size: 16), label: const Text('Edit bedtime'), style: TextButton.styleFrom(foregroundColor: Colors.white, padding: EdgeInsets.zero)),
       ])),
