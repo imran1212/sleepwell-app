@@ -365,24 +365,29 @@ class _SleepShellState extends State<SleepShell> {
 
   Widget _relax() => _shell(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     const Text('Relax & unwind', style: TextStyle(fontSize: 27, fontWeight: FontWeight.w800)),
-    const SizedBox(height: 8), const Text('Take a gentle pause before bedtime.', style: TextStyle(color: Colors.white60)),
+    const SizedBox(height: 8),
+    const Text('Take a gentle pause before bedtime.', style: TextStyle(color: Colors.white60)),
     const SizedBox(height: 24),
     Container(width: double.infinity, padding: const EdgeInsets.all(24), decoration: BoxDecoration(borderRadius: BorderRadius.circular(28), gradient: const LinearGradient(colors: [Color(0xFF2C326F), Color(0xFF18284A)])),
       child: Column(children: [
         const Text('SLOW BREATHING', style: TextStyle(color: lilac, letterSpacing: 1.6, fontSize: 11)),
-        const SizedBox(height: 22),
+        const SizedBox(height: 12),
+        Wrap(spacing: 8, children: [1, 3, 5].map((minutes) => ChoiceChip(label: Text('$minutes min'), selected: breathingSessionMinutes == minutes, onSelected: breathingActive ? null : (_) => setState(() { breathingSessionMinutes = minutes; breathingSecondsRemaining = minutes * 60; })).toList()),
+        const SizedBox(height: 14),
         Container(width: 154, height: 154, decoration: BoxDecoration(shape: BoxShape.circle, color: violet.withValues(alpha: .15), border: Border.all(color: lilac.withValues(alpha: .6), width: 2)), child: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.air, size: 42, color: lilac), const SizedBox(height: 8), Text('${(breathingSecondsRemaining ~/ 60).toString().padLeft(2, '0')}:${(breathingSecondsRemaining % 60).toString().padLeft(2, '0')}', style: const TextStyle(fontSize: 25, fontWeight: FontWeight.bold))]))),
         const SizedBox(height: 18),
-        Text(breathingActive ? (breathingSecondsRemaining % 8 < 4 ? 'Breathe in gently' : 'Breathe out slowly') : 'One mindful minute', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-        const SizedBox(height: 6), const Text('Follow a comfortable pace. Stop if you feel dizzy or uncomfortable.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white70)),
+        Text(breathingActive ? (breathingSecondsRemaining % 8 < 4 ? 'Breathe in gently' : 'Breathe out slowly') : 'A quiet $breathingSessionMinutes-minute pause', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+        const SizedBox(height: 6),
+        const Text('Follow a comfortable pace. Stop if you feel dizzy or uncomfortable.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white70)),
         const SizedBox(height: 18),
-        Row(children: [Expanded(child: _button(breathingActive ? 'Pause session' : (breathingSecondsRemaining == 0 ? 'Start again' : 'Start 60-second session'), _startBreathingSession)), const SizedBox(width: 10), IconButton(tooltip: 'Reset timer', onPressed: _resetBreathingSession, icon: const Icon(Icons.refresh), style: IconButton.styleFrom(foregroundColor: lilac, backgroundColor: violet.withValues(alpha: .15)))],),
+        Row(children: [Expanded(child: _button(breathingActive ? 'Pause session' : (breathingSecondsRemaining == 0 ? 'Start again' : 'Start $breathingSessionMinutes-minute session'), _startBreathingSession)), const SizedBox(width: 10), IconButton(tooltip: 'Reset timer', onPressed: _resetBreathingSession, icon: const Icon(Icons.refresh), style: IconButton.styleFrom(foregroundColor: lilac, backgroundColor: violet.withValues(alpha: .15)))],),
       ])),
-    const SizedBox(height: 24), const Text('Sound library', style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
+    const SizedBox(height: 24),
+    const Text('Sound library', style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
     const SizedBox(height: 12),
-    _action(Icons.water, 'Gentle ocean', 'Sound playback will be connected next', () => _snack('Audio playback is not connected in this starter.')),
-    _action(Icons.park_outlined, 'Quiet forest', 'Nature ambience', () => _snack('Audio playback is not connected in this starter.')),
-    _action(Icons.grain, 'Soft rain', 'Rain ambience', () => _snack('Audio playback is not connected in this starter.')),
+    _action(Icons.water, 'Gentle ocean', 'Ambient audio is planned for the next audio milestone', () => _snack('Ocean audio needs a licensed audio track before playback can be enabled.')),
+    _action(Icons.park_outlined, 'Quiet forest', 'Nature ambience', () => _snack('Forest audio needs a licensed audio track before playback can be enabled.')),
+    _action(Icons.grain, 'Soft rain', 'Rain ambience', () => _snack('Rain audio needs a licensed audio track before playback can be enabled.')),
   ]));
 
   Widget _diary() => _shell(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -502,7 +507,7 @@ class _SleepShellState extends State<SleepShell> {
     showModalBottomSheet(context: context, backgroundColor: card, showDragHandle: true, builder: (ctx) => StatefulBuilder(builder: (ctx, updateSheet) => Padding(
       padding: const EdgeInsets.fromLTRB(22, 8, 22, 30), child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('Settings', style: TextStyle(fontSize: 23, fontWeight: FontWeight.bold)),
-        SwitchListTile(title: const Text('Bedtime reminders'), subtitle: const Text('Scheduling will be connected next'), value: reminders, onChanged: (v) { setState(() => reminders = v); _savePreference('bedtime_reminders_v1', v); updateSheet(() {}); }),
+        SwitchListTile(title: const Text('Bedtime reminders'), subtitle: const Text('A daily notification at your saved bedtime'), value: reminders, onChanged: (v) async { await _setBedtimeReminder(v); updateSheet(() {}); }),
         ListTile(leading: const Icon(Icons.workspace_premium_outlined), title: const Text('SleepWell Premium'), onTap: () { Navigator.pop(ctx); _premium(); }),
         const ListTile(leading: Icon(Icons.privacy_tip_outlined), title: Text('Privacy'), subtitle: Text('Privacy policy will be linked before release')),
       ]),
