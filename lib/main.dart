@@ -372,7 +372,7 @@ class _SleepShellState extends State<SleepShell> {
       child: Column(children: [
         const Text('SLOW BREATHING', style: TextStyle(color: lilac, letterSpacing: 1.6, fontSize: 11)),
         const SizedBox(height: 12),
-        Wrap(spacing: 8, children: [1, 3, 5].map((minutes) => ChoiceChip(label: Text('$minutes min'), selected: breathingSessionMinutes == minutes, onSelected: breathingActive ? null : (_) => setState(() { breathingSessionMinutes = minutes; breathingSecondsRemaining = minutes * 60; })).toList()),
+        Wrap(spacing: 8, children: [1, 3, 5].map((minutes) => ChoiceChip(label: Text('$minutes min'), selected: breathingSessionMinutes == minutes, onSelected: breathingActive ? null : (_) => setState(() { breathingSessionMinutes = minutes; breathingSecondsRemaining = minutes * 60; }))).toList()),
         const SizedBox(height: 14),
         Container(width: 154, height: 154, decoration: BoxDecoration(shape: BoxShape.circle, color: violet.withValues(alpha: .15), border: Border.all(color: lilac.withValues(alpha: .6), width: 2)), child: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.air, size: 42, color: lilac), const SizedBox(height: 8), Text('${(breathingSecondsRemaining ~/ 60).toString().padLeft(2, '0')}:${(breathingSecondsRemaining % 60).toString().padLeft(2, '0')}', style: const TextStyle(fontSize: 25, fontWeight: FontWeight.bold))]))),
         const SizedBox(height: 18),
@@ -500,7 +500,7 @@ class _SleepShellState extends State<SleepShell> {
 
   void _editBedtime() {
     showTimePicker(context: context, initialTime: const TimeOfDay(hour: 22, minute: 30))
-       .then((t) { if (t != null && mounted) { final value = t.format(context); setState(() => bedtime = value); _savePreference('bedtime_v1', value); _snack('Bedtime saved: ' + value); } });
+       .then((t) { if (t != null && mounted) { final value = t.format(context); setState(() => bedtime = value); _savePreference('bedtime_v1', value); if (reminders) { _setBedtimeReminder(true); } else { _snack('Bedtime saved: ' + value); } } });
   }
 
   void _settings() {
