@@ -7,8 +7,9 @@ SleepWell is an Android-first Flutter starter for a sleep and wind-down routine 
 - Welcome screen and five-tab navigation
 - Home dashboard and bedtime card
 - Interactive routine checklist and add-step dialog
-- Breathing-session preview and sound library placeholders
-- Sleep diary form UI and progress preview
+- Interactive 60-second breathing timer with pause/reset controls
+- Relaxation sound library placeholders
+- Locally saved sleep diary and routine progress chart
 - Settings and premium paywall preview
 
 ## Important implementation status
