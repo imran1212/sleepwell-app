@@ -230,6 +230,26 @@ class _SleepShellState extends State<SleepShell> {
     return scheduled;
   }
 
+  Future<void> _sendTestNotification() async {
+    try {
+      await _initializeNotifications();
+      final androidPlugin = localNotifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      final granted = await androidPlugin?.requestNotificationsPermission();
+      const details = NotificationDetails(android: AndroidNotificationDetails(
+        'sleepwell_test', 'SleepWell test notifications',
+        channelDescription: 'Used to verify that notifications can appear on this device.',
+        importance: Importance.max,
+        priority: Priority.high,
+        icon: '@mipmap/ic_launcher',
+      ));
+      await localNotifications.show(99, 'SleepWell test', 'Notifications are working on this device.', details);
+      final pending = await localNotifications.pendingNotificationRequests();
+      if (mounted) _snack('Test sent. Permission: ${granted ?? "already granted"}. Pending reminders: ${pending.length}.');
+    } catch (e) {
+      if (mounted) _snack('Notification test failed: $e');
+    }
+  }
+
   Future<void> _setBedtimeReminder(bool enabled) async {
     setState(() => reminders = enabled);
     await _savePreference('bedtime_reminders_v1', enabled);
@@ -263,7 +283,7 @@ class _SleepShellState extends State<SleepShell> {
       if (mounted) {
         setState(() => reminders = false);
         await _savePreference('bedtime_reminders_v1', false);
-        _snack('Could not schedule reminders. Please check notification permission.');
+        _snack('Could not schedule reminder: $e');
       }
     }
   }
@@ -510,6 +530,7 @@ class _SleepShellState extends State<SleepShell> {
       padding: const EdgeInsets.fromLTRB(22, 8, 22, 30), child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('Settings', style: TextStyle(fontSize: 23, fontWeight: FontWeight.bold)),
         SwitchListTile(title: const Text('Bedtime reminders'), subtitle: const Text('A daily notification at your saved bedtime'), value: reminders, onChanged: (v) async { await _setBedtimeReminder(v); updateSheet(() {}); }),
+        ListTile(leading: const Icon(Icons.notifications_active_outlined), title: const Text('Send test notification'), subtitle: const Text('Show a notification immediately'), onTap: () async { await _sendTestNotification(); }),
         ListTile(leading: const Icon(Icons.workspace_premium_outlined), title: const Text('SleepWell Premium'), onTap: () { Navigator.pop(ctx); _premium(); }),
         const ListTile(leading: Icon(Icons.privacy_tip_outlined), title: Text('Privacy'), subtitle: Text('Privacy policy will be linked before release')),
       ]),
