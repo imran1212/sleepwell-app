@@ -13,7 +13,7 @@ SleepWell is an Android-first Flutter starter for a sleep and wind-down routine 
 - Settings and premium paywall preview
 
 ## Important implementation status
-This is a first UI scaffold, not a production-ready health or monetization app:
+The app is an early MVP, not yet production-ready for health or monetization:
 - Routine definitions, routine completion, bedtime, reminder preference and diary entries are stored locally with SharedPreferences.
 - Audio playback and actual notification scheduling are not connected.
 - AdMob and Google Play Billing are not connected.
