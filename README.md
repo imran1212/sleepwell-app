@@ -13,11 +13,11 @@ SleepWell is an Android-first Flutter starter for a sleep and wind-down routine 
 
 ## Important implementation status
 This is a first UI scaffold, not a production-ready health or monetization app:
-- Data is held in memory and resets when the app restarts.
+- Routine definitions, routine completion, bedtime, reminder preference and diary entries are stored locally with SharedPreferences.
 - Audio playback and actual notification scheduling are not connected.
 - AdMob and Google Play Billing are not connected.
 - The premium screen is a preview only; no payment is taken.
-- Progress bars are illustrative until real diary history is stored.
+- Routine completion history powers the weekly bars and current streak; detailed diary trend summaries remain a follow-on.
 
 ## Build
 The Codemagic workflow creates Android platform scaffolding, then runs package resolution, analysis, tests and a debug APK build.
@@ -34,13 +34,12 @@ flutter build apk --debug
 See [docs/MVP_SPEC.md](docs/MVP_SPEC.md) for the agreed feature scope.
 
 ## Next implementation steps
-1. Persist preferences, routine completion and diary entries locally.
-2. Add real bedtime settings and local notifications.
-3. Add licensed audio playback and a real breathing timer.
-4. Build progress charts from saved data.
-5. Add consent-aware AdMob integration.
-6. Add Google Play subscriptions, entitlement verification and restore purchases.
-7. Complete privacy, health-app declaration, testing and release checks.
+1. Add real local bedtime notification scheduling and permission handling.
+2. Add licensed audio playback with pause/stop controls.
+3. Expand progress charts with saved diary trends and sleep-time summaries.
+4. Add consent-aware AdMob integration using test ads during development.
+5. Add Google Play subscriptions, entitlement verification and restore purchases.
+6. Complete privacy, health-app declaration, accessibility, testing and release checks.
 
 
 ## Automated build
