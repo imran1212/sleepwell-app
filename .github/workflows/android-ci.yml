@@ -43,6 +43,11 @@ jobs:
           cp -R /tmp/sleepwell_platform/android ./android
           sed -i 's|<manifest xmlns:android="http://schemas.android.com/apk/res/android">|<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />|' android/app/src/main/AndroidManifest.xml
 
+      - name: Align flutter_timezone Kotlin JVM target with Java
+        run: |
+          find "$HOME/.pub-cache/hosted/pub.dev" -path '*/flutter_timezone-*/android/build.gradle' -type f -print -exec sed -i 's/jvmTarget = "1.8"/jvmTarget = "11"/g; s/jvmTarget = "1.8"/jvmTarget = "11"/g; s/JVM_1_8/JVM_11/g' {} \;
+          find "$HOME/.pub-cache/hosted/pub.dev" -path '*/flutter_timezone-*/android/build.gradle.kts' -type f -print -exec sed -i 's/JVM_1_8/JVM_11/g; s/"1.8"/"11"/g' {} \;
+
       - name: Build debug APK
         run: flutter build apk --debug
 
