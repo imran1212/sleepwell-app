@@ -153,6 +153,8 @@ class _SleepShellState extends State<SleepShell> {
       } catch (_) {}
     }
     if (mounted) setState(() => loadingSavedData = false);
+    // Restore the daily reminder after app restarts when the user has enabled it.
+    if (reminders && mounted) await _setBedtimeReminder(true);
   }
 
   Future<void> _saveRoutine() async {
@@ -212,7 +214,7 @@ class _SleepShellState extends State<SleepShell> {
   }
 
   tz.TZDateTime _nextBedtime() {
-    final match = RegExp(r'^(\\d{1,2}):(\\d{2})\\s*(AM|PM)', caseSensitive: false).matchAsPrefix(bedtime.trim());
+    final match = RegExp(r'^(\d{1,2}):(\d{2})\s*(AM|PM)', caseSensitive: false).matchAsPrefix(bedtime.trim());
     var hour = 22;
     var minute = 30;
     if (match != null) {
