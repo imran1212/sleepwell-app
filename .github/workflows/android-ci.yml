@@ -43,10 +43,23 @@ jobs:
           cp -R /tmp/sleepwell_platform/android ./android
           sed -i 's|<manifest xmlns:android="http://schemas.android.com/apk/res/android">|<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />|' android/app/src/main/AndroidManifest.xml
 
-      - name: Align flutter_timezone Kotlin JVM target with Java
+      - name: Force flutter_timezone Kotlin compile target to Java 11
         run: |
-          find "$HOME/.pub-cache/hosted/pub.dev" -path '*/flutter_timezone-*/android/build.gradle' -type f -print -exec sed -i 's/1\.8/11/g; s/JVM_1_8/JVM_11/g' {} \;
-          find "$HOME/.pub-cache/hosted/pub.dev" -path '*/flutter_timezone-*/android/build.gradle.kts' -type f -print -exec sed -i 's/1\.8/11/g; s/JVM_1_8/JVM_11/g' {} \;
+          PLUGIN_DIR="$HOME/.pub-cache/hosted/pub.dev/flutter_timezone-3.0.1/android"
+          echo "---- Original plugin Gradle file ----"
+          cat "$PLUGIN_DIR/build.gradle"
+          sed -i -E "s/1[.]8/11/g; s/JVM_1_8/JVM_11/g" "$PLUGIN_DIR/build.gradle"
+          cat >> "$PLUGIN_DIR/build.gradle" <<'GRADLE'
+
+          // Work around Java/Kotlin JVM target mismatch in this plugin.
+          tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+              kotlinOptions {
+                  jvmTarget = "11"
+              }
+          }
+          GRADLE
+          echo "---- Patched plugin Gradle file ----"
+          tail -n 18 "$PLUGIN_DIR/build.gradle"
 
       - name: Build debug APK
         run: flutter build apk --debug
