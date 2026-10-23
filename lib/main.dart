@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -45,6 +46,9 @@ class _SleepShellState extends State<SleepShell> {
   bool started = false;
   bool loadingSavedData = true;
   bool reminders = true;
+  Timer? breathingTimer;
+  int breathingSecondsRemaining = 60;
+  bool breathingActive = false;
   int tab = 0;
   int quality = 3;
   int mood = 1;
@@ -60,6 +64,18 @@ class _SleepShellState extends State<SleepShell> {
     RoutineStep('Lights out', 'Let the day come to a close', Icons.nightlight_round),
   ];
   int get completed => steps.where((s) => s.done).length;
+  int get currentStreak {
+    var streak = 0;
+    var day = DateTime.now();
+    while (true) {
+      final key = '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+      final count = dailyCompletions[key] ?? (key == todayKey ? completed : 0);
+      if (count <= 0) break;
+      streak++;
+      day = day.subtract(const Duration(days: 1));
+    }
+    return streak;
+  }
   String get todayKey {
     final now = DateTime.now();
     return '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
@@ -149,7 +165,32 @@ class _SleepShellState extends State<SleepShell> {
   }
 
   @override
-  void dispose() { note.dispose(); super.dispose(); }
+  void dispose() { breathingTimer?.cancel(); note.dispose(); super.dispose(); }
+
+  void _startBreathingSession() {
+    if (breathingActive) {
+      breathingTimer?.cancel();
+      setState(() => breathingActive = false);
+      return;
+    }
+    if (breathingSecondsRemaining <= 0) setState(() => breathingSecondsRemaining = 60);
+    setState(() => breathingActive = true);
+    breathingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) { timer.cancel(); return; }
+      if (breathingSecondsRemaining <= 1) {
+        timer.cancel();
+        setState(() { breathingSecondsRemaining = 0; breathingActive = false; });
+        _snack('Breathing session complete. Well done for taking a quiet moment.');
+      } else {
+        setState(() => breathingSecondsRemaining--);
+      }
+    });
+  }
+
+  void _resetBreathingSession() {
+    breathingTimer?.cancel();
+    setState(() { breathingActive = false; breathingSecondsRemaining = 60; });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -256,12 +297,12 @@ class _SleepShellState extends State<SleepShell> {
       child: Column(children: [
         const Text('SLOW BREATHING', style: TextStyle(color: lilac, letterSpacing: 1.6, fontSize: 11)),
         const SizedBox(height: 22),
-        Container(width: 154, height: 154, decoration: BoxDecoration(shape: BoxShape.circle, color: violet.withValues(alpha: .15), border: Border.all(color: lilac.withValues(alpha: .6), width: 2)), child: const Center(child: Icon(Icons.air, size: 60, color: lilac))),
+        Container(width: 154, height: 154, decoration: BoxDecoration(shape: BoxShape.circle, color: violet.withValues(alpha: .15), border: Border.all(color: lilac.withValues(alpha: .6), width: 2)), child: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.air, size: 42, color: lilac), const SizedBox(height: 8), Text('${(breathingSecondsRemaining ~/ 60).toString().padLeft(2, '0')}:${(breathingSecondsRemaining % 60).toString().padLeft(2, '0')}', style: const TextStyle(fontSize: 25, fontWeight: FontWeight.bold))]))),
         const SizedBox(height: 18),
-        const Text('One mindful minute', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 6), const Text('Breathe in gently, then breathe out.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white70)),
+        Text(breathingActive ? (breathingSecondsRemaining % 8 < 4 ? 'Breathe in gently' : 'Breathe out slowly') : 'One mindful minute', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+        const SizedBox(height: 6), const Text('Follow a comfortable pace. Stop if you feel dizzy or uncomfortable.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white70)),
         const SizedBox(height: 18),
-        _button('Preview breathing session', () => _snack('A timed breathing exercise will be connected next.')),
+        Row(children: [Expanded(child: _button(breathingActive ? 'Pause session' : (breathingSecondsRemaining == 0 ? 'Start again' : 'Start 60-second session'), _startBreathingSession)), const SizedBox(width: 10), IconButton(tooltip: 'Reset timer', onPressed: _resetBreathingSession, icon: const Icon(Icons.refresh), style: IconButton.styleFrom(foregroundColor: lilac, backgroundColor: violet.withValues(alpha: .15)))],),
       ])),
     const SizedBox(height: 24), const Text('Sound library', style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
     const SizedBox(height: 12),
@@ -296,7 +337,7 @@ class _SleepShellState extends State<SleepShell> {
     const SizedBox(height: 24),
     Row(children: [
       Expanded(child: _metric('Routine steps', completed.toString() + '/' + steps.length.toString(), Icons.check_circle_outline, lilac)),
-      const SizedBox(width: 12), Expanded(child: _metric('Current streak', 'Preview', Icons.local_fire_department_outlined, mint)),
+      const SizedBox(width: 12), Expanded(child: _metric('Current streak', currentStreak.toString() + (currentStreak == 1 ? ' day' : ' days'), Icons.local_fire_department_outlined, mint)),
     ]),
     const SizedBox(height: 16),
     Container(width: double.infinity, padding: const EdgeInsets.all(20), decoration: _decoration(), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -308,17 +349,18 @@ class _SleepShellState extends State<SleepShell> {
         final day = DateTime(now.year, now.month, now.day).subtract(Duration(days: 6 - i));
         final key = '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
         final heights = (dailyCompletions[key] ?? (key == todayKey ? completed : 0)) * 22.0 + 8;
-        const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+        const weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        final label = weekdayLabels[day.weekday - 1];
         return Column(mainAxisAlignment: MainAxisAlignment.end, children: [
           Container(width: 22, height: heights.clamp(8, 120).toDouble(), decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), gradient: const LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Color(0xFF6558DA), lilac]))),
-          const SizedBox(height: 8), Text(labels[i], style: const TextStyle(color: Colors.white54, fontSize: 11)),
+          const SizedBox(height: 8), Text(label, style: const TextStyle(color: Colors.white54, fontSize: 10)),
         ]);
       }))),
     ])),
     const SizedBox(height: 16),
     Container(padding: const EdgeInsets.all(16), decoration: _decoration(), child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Icon(Icons.info_outline, color: lilac), SizedBox(width: 12),
-      Expanded(child: Text('Progress will use saved diary and routine history once local storage is connected.', style: TextStyle(color: Colors.white70, height: 1.4))),
+      Expanded(child: Text('Your routine history is saved on this device. Diary trends and sleep-time summaries can be expanded in a future update.', style: TextStyle(color: Colors.white70, height: 1.4))),
     ])),
     const SizedBox(height: 16),
     _action(Icons.workspace_premium_outlined, 'Explore Premium', 'More routines and an ad-free experience', _premium),
