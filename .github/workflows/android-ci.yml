@@ -81,10 +81,15 @@ jobs:
               s = s.replace("compileOptions {", "compileOptions {\n        coreLibraryDesugaringEnabled true", 1)
               dep = "coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'"
           if "desugar_jdk_libs" not in s:
-              s = s.replace("dependencies {", "dependencies {\n    " + dep, 1)
+              if "dependencies {" in s:
+                  s = s.replace("dependencies {", "dependencies {\n    " + dep, 1)
+              else:
+                  s += "\n\ndependencies {\n    " + dep + "\n}\n"
           p.write_text(s)
-          print(p)
+          print("Patched:", p)
           print("\n".join(line for line in s.splitlines() if "compileOptions" in line or "CoreLibraryDesugaring" in line or "coreLibraryDesugaring" in line or "desugar_jdk" in line))
+          if "desugar_jdk_libs" not in s:
+              raise SystemExit("Desugaring dependency insertion failed")
           PY
 
       - name: Build debug APK
