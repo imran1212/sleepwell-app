@@ -153,6 +153,8 @@ class _SleepShellState extends State<SleepShell> {
       } catch (_) {}
     }
     if (mounted) setState(() => loadingSavedData = false);
+    // Explicitly request notification permission on first launch on Android 13+.
+    if (mounted) await _requestNotificationPermissionOnLaunch();
     // Restore the daily reminder after app restarts when the user has enabled it.
     if (reminders && mounted) await _setBedtimeReminder(true);
   }
@@ -228,6 +230,16 @@ class _SleepShellState extends State<SleepShell> {
     var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
     if (!scheduled.isAfter(now)) scheduled = scheduled.add(const Duration(days: 1));
     return scheduled;
+  }
+
+  Future<void> _requestNotificationPermissionOnLaunch() async {
+    try {
+      await _initializeNotifications();
+      final androidPlugin = localNotifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      await androidPlugin?.requestNotificationsPermission();
+    } catch (e) {
+      if (mounted) _snack('Notification permission setup failed: $e');
+    }
   }
 
   Future<void> _sendTestNotification() async {
