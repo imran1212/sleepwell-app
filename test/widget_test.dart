@@ -10,7 +10,7 @@ void main() {
   });
 
   testWidgets('shows welcome and opens the home dashboard', (tester) async {
-    await tester.pumpWidget(const SleepWellApp());
+    await tester.pumpWidget(const SleepShell());
     await tester.pumpAndSettle();
 
     expect(find.text('SleepWell'), findsOneWidget);
@@ -30,7 +30,7 @@ void main() {
 
   testWidgets('routine screen can be opened from bottom navigation', (tester) async {
     SharedPreferences.setMockInitialValues({'onboarding_done_v1': true});
-    await tester.pumpWidget(const SleepWellApp());
+    await tester.pumpWidget(const SleepShell());
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Routine').last);
