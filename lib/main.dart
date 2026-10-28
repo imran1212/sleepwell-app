@@ -514,16 +514,19 @@ class _SleepShellState extends State<SleepShell> {
     ),
   );
 
-  Widget _choice(String label, String value, String selected, ValueChanged<String> onChanged) => RadioGroup<String>(
-    groupValue: selected,
-    onChanged: (v) { if (v != null) onChanged(v); },
-    child: RadioListTile<String>(
-      value: value,
-      title: Text(label, style: const TextStyle(fontSize: 14)),
-      dense: true,
-      visualDensity: VisualDensity.compact,
-      contentPadding: EdgeInsets.zero,
-      activeColor: lilac,
+  Widget _choice(String label, String value, String selected, ValueChanged<String> onChanged) => Material(
+    color: card,
+    child: RadioGroup<String>(
+      groupValue: selected,
+      onChanged: (v) { if (v != null) onChanged(v); },
+      child: RadioListTile<String>(
+        value: value,
+        title: Text(label, style: const TextStyle(fontSize: 14)),
+        dense: true,
+        visualDensity: VisualDensity.compact,
+        contentPadding: EdgeInsets.zero,
+        activeColor: lilac,
+      ),
     ),
   );
 
