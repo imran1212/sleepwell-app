@@ -50,7 +50,7 @@ jobs:
             sed -i 's/id "com.android.application" version "[^"]*"/id "com.android.application" version "8.12.1"/' android/settings.gradle
             sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "2.2.20"/' android/settings.gradle
           fi
-          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.13-bin.zip|' android/gradle/wrapper/gradle-wrapper.properties
+          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.14.3-bin.zip|' android/gradle/wrapper/gradle-wrapper.properties
           echo "---- Pinned Android toolchain ----"
           grep -E 'com.android.application|org.jetbrains.kotlin.android' android/settings.gradle* 
           grep distributionUrl android/gradle/wrapper/gradle-wrapper.properties
