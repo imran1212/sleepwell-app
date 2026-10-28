@@ -19,6 +19,11 @@ void main() {
     await tester.tap(find.text('Get started'));
     await tester.pumpAndSettle();
 
+    expect(find.text('Make it personal'), findsOneWidget);
+    expect(find.text('What time do you usually wake up?'), findsOneWidget);
+    await tester.tap(find.text('Skip'));
+    await tester.pumpAndSettle();
+
     expect(find.text('Let’s slow things down.'), findsOneWidget);
     expect(find.text("Tonight's routine"), findsOneWidget);
   });
