@@ -13,6 +13,9 @@ void main() {
     expect(find.text('SleepWell'), findsOneWidget);
     await tester.tap(find.text('Get started'));
     await tester.pumpAndSettle();
+    expect(find.text('Make it personal'), findsOneWidget);
+    await tester.tap(find.text('Skip'));
+    await tester.pumpAndSettle();
     expect(find.text("Tonight's routine"), findsOneWidget);
     expect(find.text('Routine'), findsWidgets);
   });
