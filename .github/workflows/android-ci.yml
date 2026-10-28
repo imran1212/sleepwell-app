@@ -31,6 +31,20 @@ jobs:
       - name: Install Flutter packages
         run: flutter pub get
 
+      - name: Generate and print debug signing certificate SHA-1
+        run: |
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -v \
+              -keystore "$HOME/.android/debug.keystore" \
+              -storepass android -alias androiddebugkey -keypass android \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+          keytool -list -v -alias androiddebugkey \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android -keypass android | grep -E 'SHA1:|SHA-1:'
+
       - name: Analyze Dart code
         run: flutter analyze
 
