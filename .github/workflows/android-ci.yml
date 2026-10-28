@@ -42,6 +42,13 @@ jobs:
           flutter create --platforms=android --project-name sleepwell_app --overwrite /tmp/sleepwell_platform
           cp -R /tmp/sleepwell_platform/android ./android
           sed -i 's|<manifest xmlns:android="http://schemas.android.com/apk/res/android">|<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />|' android/app/src/main/AndroidManifest.xml
+          # Pin a Gradle/AGP combination compatible with google_mobile_ads 6.x.
+          sed -i -E 's/(com\\.android\\.application[" ]+version[ ="]+)"[^"]+"/\\18.12.1"/' android/settings.gradle
+          sed -i -E 's/(org\\.jetbrains\\.kotlin\\.android[" ]+version[ ="]+)"[^"]+"/\\12.2.20"/' android/settings.gradle
+          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.13-bin.zip|' android/gradle/wrapper/gradle-wrapper.properties
+          echo "---- Pinned Android toolchain ----"
+          grep -E 'com.android.application|org.jetbrains.kotlin.android' android/settings.gradle
+          grep distributionUrl android/gradle/wrapper/gradle-wrapper.properties
 
       - name: Force flutter_timezone Kotlin compile target to Java 11
         run: |
