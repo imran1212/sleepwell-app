@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -52,7 +53,7 @@ class SleepWellApp extends StatelessWidget {
       scaffoldBackgroundColor: bg,
       colorScheme: ColorScheme.fromSeed(seedColor: violet, brightness: Brightness.dark),
     ),
-    home: const SleepShell(),
+    home: const AuthGate(),
   );
 }
 
@@ -62,6 +63,207 @@ class RoutineStep {
   final String subtitle;
   final IconData icon;
   bool done;
+}
+
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snapshot.hasData) return const SleepShell();
+        return const SignInScreen();
+      },
+    );
+  }
+}
+
+class SignInScreen extends StatefulWidget {
+  const SignInScreen({super.key});
+
+  @override
+  State<SignInScreen> createState() => _SignInScreenState();
+}
+
+class _SignInScreenState extends State<SignInScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+  bool _createAccount = false;
+  bool _busy = false;
+  bool _hidePassword = true;
+  String? _error;
+
+  @override
+  void dispose() {
+    _email.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final auth = FirebaseAuth.instance;
+      if (_createAccount) {
+        await auth.createUserWithEmailAndPassword(
+          email: _email.text.trim(),
+          password: _password.text,
+        );
+      } else {
+        await auth.signInWithEmailAndPassword(
+          email: _email.text.trim(),
+          password: _password.text,
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      setState(() => _error = switch (e.code) {
+        'invalid-email' => 'Please enter a valid email address.',
+        'user-not-found' || 'wrong-password' || 'invalid-credential' =>
+          'Email or password is incorrect.',
+        'email-already-in-use' => 'An account already exists for this email.',
+        'weak-password' => 'Choose a password with at least 6 characters.',
+        'too-many-requests' => 'Too many attempts. Please try again later.',
+        'network-request-failed' => 'Network unavailable. Please reconnect and try again.',
+        _ => e.message ?? 'Authentication failed. Please try again.',
+      });
+    } catch (_) {
+      setState(() => _error = 'Could not connect. Check your internet and Firebase setup.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final heading = _createAccount ? 'Create your account' : 'Welcome back';
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Icon(Icons.nightlight_round, size: 54, color: lilac),
+                    const SizedBox(height: 18),
+                    const Text(
+                      'SleepWell',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      heading,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _createAccount
+                          ? 'Create an account to get started with your sleep routine.'
+                          : 'Sign in to continue to your sleep routine.',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                    const SizedBox(height: 28),
+                    TextFormField(
+                      controller: _email,
+                      keyboardType: TextInputType.emailAddress,
+                      autofillHints: const [AutofillHints.email],
+                      decoration: const InputDecoration(
+                        labelText: 'Email',
+                        prefixIcon: Icon(Icons.email_outlined),
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        final email = value?.trim() ?? '';
+                        if (email.isEmpty || !email.contains('@')) {
+                          return 'Enter a valid email address.';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _password,
+                      obscureText: _hidePassword,
+                      autofillHints: _createAccount
+                          ? const [AutofillHints.newPassword]
+                          : const [AutofillHints.password],
+                      decoration: InputDecoration(
+                        labelText: 'Password',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          onPressed: () => setState(() => _hidePassword = !_hidePassword),
+                          icon: Icon(_hidePassword ? Icons.visibility : Icons.visibility_off),
+                          tooltip: _hidePassword ? 'Show password' : 'Hide password',
+                        ),
+                      ),
+                      validator: (value) {
+                        final password = value ?? '';
+                        if (password.length < 6) {
+                          return 'Password must be at least 6 characters.';
+                        }
+                        return null;
+                      },
+                    ),
+                    if (_error != null) ...[
+                      const SizedBox(height: 14),
+                      Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+                    ],
+                    const SizedBox(height: 22),
+                    FilledButton(
+                      onPressed: _busy ? null : _submit,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: _busy
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : Text(_createAccount ? 'Create account' : 'Sign in'),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _busy
+                          ? null
+                          : () => setState(() {
+                                _createAccount = !_createAccount;
+                                _error = null;
+                              }),
+                      child: Text(
+                        _createAccount
+                            ? 'Already have an account? Sign in'
+                            : 'New to SleepWell? Create account',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class SleepShell extends StatefulWidget {
