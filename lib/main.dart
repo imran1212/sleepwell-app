@@ -2,13 +2,35 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
-void main() => runApp(const SleepWellApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(
+    options: const FirebaseOptions(
+      apiKey: 'AIzaSyBUD1xUaABYJ0st1KbcYZmxt2l2D0OUvoU',
+      appId: '1:648247250215:android:84a21b3661342675812d02',
+      messagingSenderId: '648247250215',
+      projectId: 'sleepwell-01',
+      storageBucket: 'sleepwell-01.firebasestorage.app',
+    ),
+  );
+
+  // Firestore persists cached documents on Android so previously read data can
+  // remain available when the device is offline.
+  FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: true,
+  );
+
+  runApp(const SleepWellApp());
+}
 
 const bg = Color(0xFF0B1025);
 const card = Color(0xFF151D3B);
