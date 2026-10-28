@@ -8,7 +8,7 @@ void main() {
   });
 
   testWidgets('welcome screen opens the SleepWell dashboard', (tester) async {
-    await tester.pumpWidget(const SleepWellApp());
+    await tester.pumpWidget(const SleepShell());
     await tester.pumpAndSettle();
     expect(find.text('SleepWell'), findsOneWidget);
     await tester.tap(find.text('Get started'));
@@ -23,7 +23,7 @@ void main() {
   testWidgets('routine completion is saved locally', (tester) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_done_v1', true);
-    await tester.pumpWidget(const SleepWellApp());
+    await tester.pumpWidget(const SleepShell());
     await tester.pumpAndSettle();
     await tester.tap(find.text('Put your phone away'));
     await tester.pumpAndSettle();
