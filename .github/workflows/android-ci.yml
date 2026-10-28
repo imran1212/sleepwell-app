@@ -42,25 +42,18 @@ jobs:
           flutter create --platforms=android --project-name sleepwell_app --overwrite /tmp/sleepwell_platform
           cp -R /tmp/sleepwell_platform/android ./android
           sed -i 's|<manifest xmlns:android="http://schemas.android.com/apk/res/android">|<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />|' android/app/src/main/AndroidManifest.xml
-          # Pin Android toolchain; current Flutter scaffold uses Kotlin DSL (.gradle.kts).
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-
-          settings = Path("android/settings.gradle.kts")
-          if not settings.exists():
-              settings = Path("android/settings.gradle")
-          if not settings.exists():
-              raise SystemExit("Android settings.gradle(.kts) not found")
-          s = settings.read_text()
-          s, a = re.subn(r'(id\\(["\\']com\\.android\\.application["\\']\\)\\s+version\\s+["\\'])[^"\\']+(["\\'])', r'\\g<1>8.12.1\\2', s)
-          s, k = re.subn(r'(id\\(["\\']org\\.jetbrains\\.kotlin\\.android["\\']\\)\\s+version\\s+["\\'])[^"\\']+(["\\'])', r'\\g<1>2.2.20\\2', s)
-          # Also support Groovy DSL syntax.
-          s = re.sub(r'(id ["\\']com\\.android\\.application["\\'] version ["\\'])[^"\\']+(["\\'])', r'\\g<1>8.12.1\\2', s)
-          s = re.sub(r'(id ["\\']org\\.jetbrains\\.kotlin\\.android["\\'] version ["\\'])[^"\\']+(["\\'])', r'\\g<1>2.2.20\\2', s)
-          settings.write_text(s)
-          wrapper = Path("android/gradle/wrapper/gradle-wrapper.properties")
-          wrapper.write_text(re.sub(r'^distributionUrl=.*
+          # Pin Android toolchain for the current Kotlin DSL scaffold.
+          if [ -f android/settings.gradle.kts ]; then
+            sed -i 's/id("com.android.application") version "[^"]*"/id("com.android.application") version "8.12.1"/' android/settings.gradle.kts
+            sed -i 's/id("org.jetbrains.kotlin.android") version "[^"]*"/id("org.jetbrains.kotlin.android") version "2.2.20"/' android/settings.gradle.kts
+          else
+            sed -i 's/id "com.android.application" version "[^"]*"/id "com.android.application" version "8.12.1"/' android/settings.gradle
+            sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "2.2.20"/' android/settings.gradle
+          fi
+          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.13-bin.zip|' android/gradle/wrapper/gradle-wrapper.properties
+          echo "---- Pinned Android toolchain ----"
+          grep -E 'com.android.application|org.jetbrains.kotlin.android' android/settings.gradle* 
+          grep distributionUrl android/gradle/wrapper/gradle-wrapper.properties
 
       - name: Force flutter_timezone Kotlin compile target to Java 11
         run: |
