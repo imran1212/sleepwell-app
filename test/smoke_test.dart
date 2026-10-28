@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sleepwell_app/main.dart';
@@ -7,9 +8,15 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('welcome screen opens the SleepWell dashboard', (tester) async {
-    await tester.pumpWidget(const SleepShell());
+  Future<void> pumpSleepShell(WidgetTester tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: SleepShell()),
+    );
     await tester.pumpAndSettle();
+  }
+
+  testWidgets('welcome screen opens the SleepWell dashboard', (tester) async {
+    await pumpSleepShell(tester);
     expect(find.text('SleepWell'), findsOneWidget);
     await tester.tap(find.text('Get started'));
     await tester.pumpAndSettle();
@@ -23,8 +30,7 @@ void main() {
   testWidgets('routine completion is saved locally', (tester) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_done_v1', true);
-    await tester.pumpWidget(const SleepShell());
-    await tester.pumpAndSettle();
+    await pumpSleepShell(tester);
     await tester.tap(find.text('Put your phone away'));
     await tester.pumpAndSettle();
     await tester.pump(const Duration(milliseconds: 100));
