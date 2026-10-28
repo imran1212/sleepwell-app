@@ -89,10 +89,28 @@ jobs:
           if "compileOptions {" not in s:
               raise SystemExit("compileOptions block not found")
           if p.suffix == ".kts":
-              s = s.replace("compileOptions {", "compileOptions {\n        isCoreLibraryDesugaringEnabled = true", 1)
+              s = s.replace(
+                  "compileOptions {",
+                  "compileOptions {\n        sourceCompatibility = JavaVersion.VERSION_11\n        targetCompatibility = JavaVersion.VERSION_11\n        isCoreLibraryDesugaringEnabled = true",
+                  1,
+              )
+              s = s.replace(
+                  "jvmTarget = JavaVersion.VERSION_1_8.toString()",
+                  'jvmTarget = "11"',
+              )
+              s = s.replace(
+                  "jvmTarget = JavaVersion.VERSION_1_8",
+                  'jvmTarget = "11"',
+              )
               dep = 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")'
           else:
-              s = s.replace("compileOptions {", "compileOptions {\n        coreLibraryDesugaringEnabled true", 1)
+              s = s.replace(
+                  "compileOptions {",
+                  "compileOptions {\n        sourceCompatibility JavaVersion.VERSION_11\n        targetCompatibility JavaVersion.VERSION_11\n        coreLibraryDesugaringEnabled true",
+                  1,
+              )
+              s = s.replace("jvmTarget = '1.8'", "jvmTarget = '11'")
+              s = s.replace('jvmTarget = "1.8"', 'jvmTarget = "11"')
               dep = "coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'"
           if "desugar_jdk_libs" not in s:
               if "dependencies {" in s:
