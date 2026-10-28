@@ -20,7 +20,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Make it personal'), findsOneWidget);
-    expect(find.text('What time do you usually wake up?'), findsOneWidget);
+    expect(find.text('1. What time do you usually wake up?'), findsOneWidget);
     await tester.tap(find.text('Skip'));
     await tester.pumpAndSettle();
 
