@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sleepwell_app/main.dart';
@@ -9,9 +10,15 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('shows welcome and opens the home dashboard', (tester) async {
-    await tester.pumpWidget(const SleepShell());
+  Future<void> pumpSleepShell(WidgetTester tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: SleepShell()),
+    );
     await tester.pumpAndSettle();
+  }
+
+  testWidgets('shows welcome and opens the home dashboard', (tester) async {
+    await pumpSleepShell(tester);
 
     expect(find.text('SleepWell'), findsOneWidget);
     expect(find.text('Build a better bedtime routine,\none night at a time.'), findsOneWidget);
@@ -30,8 +37,7 @@ void main() {
 
   testWidgets('routine screen can be opened from bottom navigation', (tester) async {
     SharedPreferences.setMockInitialValues({'onboarding_done_v1': true});
-    await tester.pumpWidget(const SleepShell());
-    await tester.pumpAndSettle();
+    await pumpSleepShell(tester);
 
     await tester.tap(find.text('Routine').last);
     await tester.pumpAndSettle();
