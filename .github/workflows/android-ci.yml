@@ -61,6 +61,22 @@ jobs:
           echo "---- Original plugin Gradle file ----"
           cat "$PLUGIN_DIR/build.gradle"
           sed -i -E "s/VERSION_1_8/VERSION_11/g; s/JVM_1_8/JVM_11/g; s/1[.]8/11/g" "$PLUGIN_DIR/build.gradle"
+          # The plugin's Android compileOptions, not just its java block, controls Javac's task target.
+          python3 - <<'PYPLUGIN'
+          from pathlib import Path
+          p = Path.home() / ".pub-cache/hosted/pub.dev/flutter_timezone-3.0.1/android/build.gradle"
+          s = p.read_text()
+          if "compileOptions {" not in s:
+              s = s.replace(
+                  "    defaultConfig {",
+                  "    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_11\n        targetCompatibility JavaVersion.VERSION_11\n    }\n    defaultConfig {",
+                  1,
+              )
+          else:
+              s = s.replace("compileOptions {", "compileOptions {\n        sourceCompatibility JavaVersion.VERSION_11\n        targetCompatibility JavaVersion.VERSION_11", 1)
+          p.write_text(s)
+          print("\n".join(line for line in s.splitlines() if "compileOptions" in line or "sourceCompatibility" in line or "targetCompatibility" in line))
+          PYPLUGIN
           echo "---- Verify Java/Kotlin target settings ----"
           grep -nE "sourceCompatibility|targetCompatibility|jvmTarget|VERSION_1_8|JVM_1_8" "$PLUGIN_DIR/build.gradle" || true
           cat >> "$PLUGIN_DIR/build.gradle" <<'GRADLE'
