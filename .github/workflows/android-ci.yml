@@ -60,7 +60,9 @@ jobs:
           PLUGIN_DIR="$HOME/.pub-cache/hosted/pub.dev/flutter_timezone-3.0.1/android"
           echo "---- Original plugin Gradle file ----"
           cat "$PLUGIN_DIR/build.gradle"
-          sed -i -E "s/1[.]8/11/g; s/JVM_1_8/JVM_11/g" "$PLUGIN_DIR/build.gradle"
+          sed -i -E "s/VERSION_1_8/VERSION_11/g; s/JVM_1_8/JVM_11/g; s/1[.]8/11/g" "$PLUGIN_DIR/build.gradle"
+          echo "---- Verify Java/Kotlin target settings ----"
+          grep -nE "sourceCompatibility|targetCompatibility|jvmTarget|VERSION_1_8|JVM_1_8" "$PLUGIN_DIR/build.gradle" || true
           cat >> "$PLUGIN_DIR/build.gradle" <<'GRADLE'
 
           // Work around Java/Kotlin JVM target mismatch in this plugin.
