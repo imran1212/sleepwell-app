@@ -68,7 +68,7 @@ jobs:
           if "com.google.android.gms.ads.APPLICATION_ID" not in s:
               if marker not in s:
                   raise SystemExit("Android application tag not found; refusing to continue")
-              s = s.replace(marker, marker + "\\n" + metadata, 1)
+              s = s.replace(marker, marker + "\n" + metadata, 1)
               p.write_text(s)
           print("Configured Google test AdMob Application ID in generated manifest.")
           PYADS
