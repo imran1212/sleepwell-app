@@ -56,6 +56,22 @@ jobs:
           flutter create --platforms=android --project-name sleepwell_app --overwrite /tmp/sleepwell_platform
           cp -R /tmp/sleepwell_platform/android ./android
           sed -i 's|<manifest xmlns:android="http://schemas.android.com/apk/res/android">|<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />|' android/app/src/main/AndroidManifest.xml
+          python3 - <<'PYADS'
+          from pathlib import Path
+          p = Path("android/app/src/main/AndroidManifest.xml")
+          s = p.read_text()
+          marker = "    <application"
+          metadata = '''    <meta-data
+                  android:name="com.google.android.gms.ads.APPLICATION_ID"
+                  android:value="ca-app-pub-3940256099942544~3347511713" />
+          '''
+          if "com.google.android.gms.ads.APPLICATION_ID" not in s:
+              if marker not in s:
+                  raise SystemExit("Android application tag not found; refusing to continue")
+              s = s.replace(marker, marker + "\\n" + metadata, 1)
+              p.write_text(s)
+          print("Configured Google test AdMob Application ID in generated manifest.")
+          PYADS
           # Pin Android toolchain for the current Kotlin DSL scaffold.
           if [ -f android/settings.gradle.kts ]; then
             sed -i 's/id("com.android.application") version "[^"]*"/id("com.android.application") version "8.12.1"/' android/settings.gradle.kts
