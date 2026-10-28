@@ -50,7 +50,12 @@ class SleepShell extends StatefulWidget {
 
 class _SleepShellState extends State<SleepShell> {
   bool started = false;
+  bool onboardingQuestions = false;
   bool loadingSavedData = true;
+  String wakeTime = '07:00';
+  String preferredBedtime = '23:00';
+  String sleepDifficulty = 'falling';
+  String sleepGoal = 'routine';
   bool reminders = false;
   int breathingSessionMinutes = 1;
   Timer? breathingTimer;
@@ -131,7 +136,12 @@ class _SleepShellState extends State<SleepShell> {
       for (final step in steps) { step.done = false; }
     }
     started = prefs.getBool('onboarding_done_v1') ?? false;
-    bedtime = prefs.getString('bedtime_v1') ?? '10:30 PM';
+    onboardingQuestions = false;
+    wakeTime = prefs.getString('sleep_wake_time_v1') ?? '07:00';
+    preferredBedtime = prefs.getString('sleep_preferred_bedtime_v1') ?? '23:00';
+    sleepDifficulty = prefs.getString('sleep_difficulty_v1') ?? 'falling';
+    sleepGoal = prefs.getString('sleep_goal_v1') ?? 'routine';
+    bedtime = prefs.getString('bedtime_v1') ?? _formatSavedTime(preferredBedtime);
     reminders = prefs.getBool('bedtime_reminders_v1') ?? false;
     final savedDiary = prefs.getString('sleep_diary_v1');
     if (savedDiary != null) {
@@ -295,7 +305,7 @@ class _SleepShellState extends State<SleepShell> {
     if (loadingSavedData) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    if (!started) return _welcome();
+    if (!started) return onboardingQuestions ? _personalization() : _welcome();
     final pages = [_home(), _routine(), _relax(), _diary(), _progress()];
     return Scaffold(
       body: SafeArea(child: pages[tab]),
@@ -330,12 +340,189 @@ class _SleepShellState extends State<SleepShell> {
           const SizedBox(height: 18),
           const Text('Build a better bedtime routine,\none night at a time.', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, height: 1.5, color: Colors.white70)),
           const Spacer(),
-          _button('Get started', () { setState(() => started = true); _savePreference('onboarding_done_v1', true); }),
+          _button('Get started', () { setState(() => onboardingQuestions = true); }),
           const SizedBox(height: 14),
           const Text('A calmer end to your day', style: TextStyle(color: Colors.white54, fontSize: 12)),
         ]),
       )),
     ),
+  );
+
+  String _formatSavedTime(String value) {
+    final parts = value.split(':');
+    if (parts.length != 2) return '11:00 PM';
+    var hour = int.tryParse(parts[0]) ?? 23;
+    final minute = int.tryParse(parts[1]) ?? 0;
+    final period = hour >= 12 ? 'PM' : 'AM';
+    hour = hour % 12;
+    if (hour == 0) hour = 12;
+    return hour.toString() + ':' + minute.toString().padLeft(2, '0') + ' ' + period;
+  }
+
+  Future<void> _completePersonalization({required bool skipped}) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!skipped) {
+      await prefs.setString('sleep_wake_time_v1', wakeTime);
+      await prefs.setString('sleep_preferred_bedtime_v1', preferredBedtime);
+      await prefs.setString('sleep_difficulty_v1', sleepDifficulty);
+      await prefs.setString('sleep_goal_v1', sleepGoal);
+      final savedBedtime = _formatSavedTime(preferredBedtime);
+      await prefs.setString('bedtime_v1', savedBedtime);
+      if (mounted) setState(() => bedtime = savedBedtime);
+      final revised = <RoutineStep>[
+        RoutineStep('Put your phone away', 'Give your mind a screen break', Icons.phone_iphone),
+        RoutineStep(
+          sleepDifficulty == 'anxiety' ? 'Quiet your thoughts' : 'Breathe slowly',
+          sleepDifficulty == 'anxiety'
+              ? 'Try a gentle breathing pause to unwind'
+              : 'A few calm, gentle breaths',
+          Icons.air,
+        ),
+        RoutineStep(
+          sleepGoal == 'relax' ? 'Listen and unwind' : 'Prepare for tomorrow',
+          sleepGoal == 'relax'
+              ? 'Choose a calming sound when audio is available'
+              : 'Make tomorrow feel a little easier',
+          sleepGoal == 'relax' ? Icons.music_note : Icons.check_circle_outline,
+        ),
+        RoutineStep('Read a few pages', 'Ease into a quieter evening', Icons.menu_book),
+        RoutineStep('Lights out', 'Aim for your chosen bedtime', Icons.nightlight_round),
+      ];
+      final hadSavedRoutine = prefs.getString('routine_steps_v1') != null;
+      if (!hadSavedRoutine) steps = revised;
+    }
+    await prefs.setBool('onboarding_done_v1', true);
+    if (!mounted) return;
+    setState(() {
+      started = true;
+      onboardingQuestions = false;
+      tab = 0;
+    });
+    if (!skipped) {
+      await _saveRoutine();
+      _snack('Your sleep preferences are saved. Your routine is personalized.');
+    } else {
+      _snack('You can personalize your sleep routine later.');
+    }
+  }
+
+  Widget _personalization() => Scaffold(
+    body: Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF22265A), bg, Color(0xFF090D1C)],
+        ),
+      ),
+      child: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 12, 0),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('PERSONALIZATION', style: TextStyle(color: lilac, fontSize: 11, letterSpacing: 1.4)),
+                        SizedBox(height: 4),
+                        Text('Make it personal', style: TextStyle(fontSize: 25, fontWeight: FontWeight.w800)),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => _completePersonalization(skipped: true),
+                    child: const Text('Skip'),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('A few quick answers help SleepWell shape a routine around you.', style: TextStyle(color: Colors.white70, height: 1.45)),
+                    const SizedBox(height: 20),
+                    _questionCard(
+                      '1. What time do you usually wake up?',
+                      [
+                        _choice('6:00 AM', '06:00', wakeTime, (v) => setState(() => wakeTime = v)),
+                        _choice('7:00 AM', '07:00', wakeTime, (v) => setState(() => wakeTime = v)),
+                        _choice('8:00 AM', '08:00', wakeTime, (v) => setState(() => wakeTime = v)),
+                        _choice('9:00 AM or later', '09:00', wakeTime, (v) => setState(() => wakeTime = v)),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _questionCard(
+                      '2. What time do you usually go to bed?',
+                      [
+                        _choice('9:00 PM', '21:00', preferredBedtime, (v) => setState(() => preferredBedtime = v)),
+                        _choice('10:00 PM', '22:00', preferredBedtime, (v) => setState(() => preferredBedtime = v)),
+                        _choice('11:00 PM', '23:00', preferredBedtime, (v) => setState(() => preferredBedtime = v)),
+                        _choice('Midnight or later', '00:00', preferredBedtime, (v) => setState(() => preferredBedtime = v)),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _questionCard(
+                      '3. What makes sleep difficult?',
+                      [
+                        _choice('Falling asleep', 'falling', sleepDifficulty, (v) => setState(() => sleepDifficulty = v)),
+                        _choice('Stress or racing thoughts', 'anxiety', sleepDifficulty, (v) => setState(() => sleepDifficulty = v)),
+                        _choice('Waking during the night', 'waking', sleepDifficulty, (v) => setState(() => sleepDifficulty = v)),
+                        _choice('Irregular sleep schedule', 'schedule', sleepDifficulty, (v) => setState(() => sleepDifficulty = v)),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _questionCard(
+                      '4. What is your main sleep goal?',
+                      [
+                        _choice('Build a consistent routine', 'routine', sleepGoal, (v) => setState(() => sleepGoal = v)),
+                        _choice('Relax before bedtime', 'relax', sleepGoal, (v) => setState(() => sleepGoal = v)),
+                        _choice('Wake up refreshed', 'energy', sleepGoal, (v) => setState(() => sleepGoal = v)),
+                        _choice('Understand sleep patterns', 'track', sleepGoal, (v) => setState(() => sleepGoal = v)),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    _button('Save and build my routine', () => _completePersonalization(skipped: false)),
+                    const SizedBox(height: 10),
+                    const Text('Your answers stay on this device. You can skip now and personalize later.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Colors.white54)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+
+  Widget _questionCard(String title, List<Widget> choices) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(16),
+    decoration: _decoration(),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+        const SizedBox(height: 8),
+        ...choices,
+      ],
+    ),
+  );
+
+  Widget _choice(String label, String value, String selected, ValueChanged<String> onChanged) => RadioListTile<String>(
+    value: value,
+    groupValue: selected,
+    onChanged: (v) { if (v != null) onChanged(v); },
+    title: Text(label, style: const TextStyle(fontSize: 14)),
+    dense: true,
+    visualDensity: VisualDensity.compact,
+    contentPadding: EdgeInsets.zero,
+    activeColor: lilac,
   );
 
   Widget _home() => _shell(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
