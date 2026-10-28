@@ -232,16 +232,6 @@ class _SleepShellState extends State<SleepShell> {
     return scheduled;
   }
 
-  Future<void> _requestNotificationPermissionOnLaunch() async {
-    try {
-      await _initializeNotifications();
-      final androidPlugin = localNotifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-      await androidPlugin?.requestNotificationsPermission();
-    } catch (e) {
-      if (mounted) _snack('Notification permission setup failed: $e');
-    }
-  }
-
   Future<void> _sendTestNotification() async {
     try {
       await _initializeNotifications();
