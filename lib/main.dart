@@ -153,8 +153,8 @@ class _SleepShellState extends State<SleepShell> {
       } catch (_) {}
     }
     if (mounted) setState(() => loadingSavedData = false);
-    // Explicitly request notification permission on first launch on Android 13+.
-    if (mounted) await _requestNotificationPermissionOnLaunch();
+    // Ask for notification permission contextually when the user enables reminders.
+    // Avoid triggering platform permission UI before onboarding or in widget tests.
     // Restore the daily reminder after app restarts when the user has enabled it.
     if (reminders && mounted) await _setBedtimeReminder(true);
   }
@@ -390,7 +390,7 @@ class _SleepShellState extends State<SleepShell> {
     Container(padding: const EdgeInsets.all(18), decoration: _decoration(), child: Row(children: [
       const Icon(Icons.auto_awesome, color: lilac, size: 28), const SizedBox(width: 12),
       Expanded(child: Text(completed.toString() + ' of ' + steps.length.toString() + ' steps complete', style: const TextStyle(fontWeight: FontWeight.w700))),
-      Text((completed / steps.length * 100).round().toString() + '%', style: const TextStyle(color: mint, fontWeight: FontWeight.bold)),
+      Text((steps.isEmpty ? 0 : completed / steps.length * 100).round().toString() + '%', style: const TextStyle(color: mint, fontWeight: FontWeight.bold)),
     ])),
     const SizedBox(height: 16), ...steps.map((s) => _stepTile(s, large: true)),
     _button('Reset tonight’s checklist', () { setState(() { for (final s in steps) { s.done = false; } }); _saveRoutine(); }),
@@ -461,7 +461,7 @@ class _SleepShellState extends State<SleepShell> {
         final now = DateTime.now();
         final day = DateTime(now.year, now.month, now.day).subtract(Duration(days: 6 - i));
         final key = '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
-        final heights = (dailyCompletions[key] ?? (key == todayKey ? completed : 0)) * 22.0 + 8;
+        final heights = (dailyCompletions[key] ?? (key == todayKey ? completed : 0)) * (steps.isEmpty ? 0.0 : 100.0 / steps.length) + 8;
         const weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
         final label = weekdayLabels[day.weekday - 1];
         return Column(mainAxisAlignment: MainAxisAlignment.end, children: [
