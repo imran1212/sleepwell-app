@@ -66,10 +66,10 @@ jobs:
                           android:value="ca-app-pub-3940256099942544~3347511713" />
           '''
           if "com.google.android.gms.ads.APPLICATION_ID" not in s:
-              match = re.search(r"<application\\b[^>]*>", s)
+              match = re.search(r"<application\b[^>]*>", s)
               if not match:
                   raise SystemExit("Android application opening tag not found; refusing to continue")
-              s = s[:match.end()] + "\\n" + metadata + s[match.end():]
+              s = s[:match.end()] + "\n" + metadata + s[match.end():]
               p.write_text(s)
           print("Configured Google test AdMob Application ID inside the application element.")
           PYADS
