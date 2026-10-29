@@ -58,19 +58,20 @@ jobs:
           sed -i 's|<manifest xmlns:android="http://schemas.android.com/apk/res/android">|<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />|' android/app/src/main/AndroidManifest.xml
           python3 - <<'PYADS'
           from pathlib import Path
+          import re
           p = Path("android/app/src/main/AndroidManifest.xml")
           s = p.read_text()
-          marker = "    <application"
-          metadata = '''    <meta-data
-                  android:name="com.google.android.gms.ads.APPLICATION_ID"
-                  android:value="ca-app-pub-3940256099942544~3347511713" />
+          metadata = '''        <meta-data
+                          android:name="com.google.android.gms.ads.APPLICATION_ID"
+                          android:value="ca-app-pub-3940256099942544~3347511713" />
           '''
           if "com.google.android.gms.ads.APPLICATION_ID" not in s:
-              if marker not in s:
-                  raise SystemExit("Android application tag not found; refusing to continue")
-              s = s.replace(marker, marker + "\n" + metadata, 1)
+              match = re.search(r"<application\\b[^>]*>", s)
+              if not match:
+                  raise SystemExit("Android application opening tag not found; refusing to continue")
+              s = s[:match.end()] + "\\n" + metadata + s[match.end():]
               p.write_text(s)
-          print("Configured Google test AdMob Application ID in generated manifest.")
+          print("Configured Google test AdMob Application ID inside the application element.")
           PYADS
           # Pin Android toolchain for the current Kotlin DSL scaffold.
           if [ -f android/settings.gradle.kts ]; then
