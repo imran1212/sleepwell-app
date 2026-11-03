@@ -86,6 +86,26 @@ jobs:
           if 'applicationId = "com.svsystem.sleepwell.app"' not in s:
               raise SystemExit("Could not set the new Android applicationId")
           print("Android namespace/applicationId set to com.svsystem.sleepwell.app")
+          # Keep the Android entry-point class in the same namespace as the manifest.
+          from pathlib import Path
+          candidates = list(Path("android/app/src/main").rglob("MainActivity.kt"))
+          if len(candidates) != 1:
+              raise SystemExit(f"Expected one MainActivity.kt, found {len(candidates)}")
+          activity = candidates[0]
+          source = activity.read_text()
+          source = source.replace(
+              "package com.example.sleepwell_app",
+              "package com.svsystem.sleepwell.app",
+              1,
+          )
+          if "package com.svsystem.sleepwell.app" not in source:
+              raise SystemExit("Could not update MainActivity package declaration")
+          target = Path("android/app/src/main/kotlin/com/svsystem/sleepwell/app/MainActivity.kt")
+          target.parent.mkdir(parents=True, exist_ok=True)
+          target.write_text(source)
+          if activity != target:
+              activity.unlink()
+          print(f"Moved MainActivity to {target}")
           PYID
           # Pin Android toolchain for the current Kotlin DSL scaffold.
           if [ -f android/settings.gradle.kts ]; then
