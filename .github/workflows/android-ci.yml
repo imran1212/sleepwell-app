@@ -239,11 +239,20 @@ jobs:
           """
           if "signingConfigs {" not in s:
               s = s.replace("    buildTypes {", signing + "\n    buildTypes {", 1)
+          if 'getByName("release") {' not in s and 'release {' not in s:
+              raise SystemExit("Release build type not found in generated Gradle file")
           s = s.replace(
-              'getByName("release") {',
-              'getByName("release") {\n            signingConfig = signingConfigs.getByName("release")',
-              1,
+              'signingConfig = signingConfigs.getByName("debug")',
+              'signingConfig = signingConfigs.getByName("release")',
           )
+          if 'signingConfig = signingConfigs.getByName("release")' not in s:
+              s = s.replace(
+                  'getByName("release") {',
+                  'getByName("release") {\\n            signingConfig = signingConfigs.getByName("release")',
+                  1,
+              )
+          if 'signingConfig = signingConfigs.getByName("debug")' in s:
+              raise SystemExit("Debug signing still configured for release build")
           p.write_text(s)
           print("Configured release signing from GitHub Actions secrets.")
           PYSIGN
@@ -262,6 +271,12 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: flutter build appbundle --release
+
+      - name: Verify release APK and AAB signatures
+        run: |
+          jarsigner -verify -verbose -certs build/app/outputs/bundle/release/app-release.aab >/dev/null
+          apksigner verify --verbose build/app/outputs/flutter-apk/app-release.apk
+          echo "AAB and APK signatures verified."
 
       - name: Print debug signing certificate SHA-1
         run: |
