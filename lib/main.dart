@@ -288,6 +288,7 @@ class _SleepShellState extends State<SleepShell> {
   bool breathingActive = false;
   final AudioPlayer ambientPlayer = AudioPlayer();
   PlayerState ambientPlayerState = PlayerState.stopped;
+  StreamSubscription<PlayerState>? ambientStateSubscription;
   String? activeAmbient;
   int tab = 0;
   int quality = 3;
@@ -325,6 +326,9 @@ class _SleepShellState extends State<SleepShell> {
   @override
   void initState() {
     super.initState();
+    ambientStateSubscription = ambientPlayer.onPlayerStateChanged.listen((state) {
+      if (mounted) setState(() => ambientPlayerState = state);
+    });
     _loadSavedData();
   }
 
@@ -415,7 +419,13 @@ class _SleepShellState extends State<SleepShell> {
   }
 
   @override
-  void dispose() { breathingTimer?.cancel(); note.dispose(); super.dispose(); }
+  void dispose() {
+    breathingTimer?.cancel();
+    ambientStateSubscription?.cancel();
+    ambientPlayer.dispose();
+    note.dispose();
+    super.dispose();
+  }
 
 
   Future<void> _startBreathingSession() async {
