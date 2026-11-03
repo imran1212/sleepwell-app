@@ -202,7 +202,7 @@ jobs:
           test -n "$ANDROID_KEY_ALIAS" || { echo "Missing ANDROID_KEY_ALIAS secret"; exit 1; }
           test -n "$ANDROID_KEY_PASSWORD" || { echo "Missing ANDROID_KEY_PASSWORD secret"; exit 1; }
           echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/sleepwell-upload.jks"
-          export SLEEPWELL_KEYSTORE_PATH="$RUNNER_TEMP/sleepwell-upload.jks"
+          echo "SLEEPWELL_KEYSTORE_PATH=$RUNNER_TEMP/sleepwell-upload.jks" >> "$GITHUB_ENV"
           python3 - <<'PYSIGN'
           from pathlib import Path
           p = Path("android/app/build.gradle.kts")
@@ -218,10 +218,10 @@ jobs:
           }
           """
           if "signingConfigs {" not in s:
-              s = s.replace("    buildTypes {", signing + "\\n    buildTypes {", 1)
+              s = s.replace("    buildTypes {", signing + "\n    buildTypes {", 1)
           s = s.replace(
               'getByName("release") {',
-              'getByName("release") {\\n            signingConfig = signingConfigs.getByName("release")',
+              'getByName("release") {\n            signingConfig = signingConfigs.getByName("release")',
               1,
           )
           p.write_text(s)
@@ -230,19 +230,29 @@ jobs:
         shell: bash
 
       - name: Build release APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: flutter build apk --release
 
       - name: Build release Android App Bundle
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: flutter build appbundle --release
 
       - name: Print debug signing certificate SHA-1
         run: |
           keytool -list -v -alias androiddebugkey -keystore "$HOME/.android/debug.keystore" -storepass android -keypass android | grep -E 'SHA1:|SHA-1:'
           
-      - name: Upload debug APK
+      - name: Upload signed release APK and AAB
         uses: actions/upload-artifact@v4
         with:
-          name: sleepwell-debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: sleepwell-signed-release
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 90
