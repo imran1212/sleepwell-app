@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -287,6 +288,18 @@ class _SleepShellState extends State<SleepShell> {
   int breathingSecondsRemaining = 60;
   bool breathingActive = false;
   final AudioPlayer ambientPlayer = AudioPlayer();
+  final InAppPurchase billing = InAppPurchase.instance;
+  StreamSubscription<List<PurchaseDetails>>? purchaseSubscription;
+  bool billingAvailable = false;
+  bool premiumActive = false;
+  bool purchaseBusy = false;
+  String? selectedPremiumPlan;
+  List<ProductDetails> premiumProducts = [];
+  static const Map<String, String> premiumProductNames = {
+    'sleepwell_premium_monthly': 'Monthly',
+    'sleepwell_premium_yearly': 'Yearly',
+    'sleepwell_premium_lifetime': 'Lifetime',
+  };
   PlayerState ambientPlayerState = PlayerState.stopped;
   StreamSubscription<PlayerState>? ambientStateSubscription;
   String? activeAmbient;
@@ -329,6 +342,13 @@ class _SleepShellState extends State<SleepShell> {
     ambientStateSubscription = ambientPlayer.onPlayerStateChanged.listen((state) {
       if (mounted) setState(() => ambientPlayerState = state);
     });
+    purchaseSubscription = billing.purchaseStream.listen(
+      _onPurchaseUpdates,
+      onError: (Object error) {
+        if (mounted) _snack('Purchase update failed. Please try again.');
+      },
+    );
+    _initializeBilling();
     _loadSavedData();
   }
 
@@ -422,6 +442,7 @@ class _SleepShellState extends State<SleepShell> {
   void dispose() {
     breathingTimer?.cancel();
     ambientStateSubscription?.cancel();
+    purchaseSubscription?.cancel();
     ambientPlayer.dispose();
     note.dispose();
     super.dispose();
@@ -1072,21 +1093,191 @@ class _SleepShellState extends State<SleepShell> {
     )));
   }
 
-  void _premium() {
-    showModalBottomSheet(context: context, backgroundColor: card, showDragHandle: true, isScrollControlled: true, builder: (ctx) => Padding(
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 32), child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Icon(Icons.nights_stay_rounded, size: 52, color: lilac), const SizedBox(height: 12),
-        const Text('SleepWell Premium', style: TextStyle(fontSize: 25, fontWeight: FontWeight.w800)),
-        const SizedBox(height: 8), const Text('More ways to make evenings your own.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white60)),
-        const SizedBox(height: 20),
-        const ListTile(leading: Icon(Icons.check_circle_outline, color: mint), title: Text('Full relaxation library')),
-        const ListTile(leading: Icon(Icons.check_circle_outline, color: mint), title: Text('Custom routine options')),
-        const ListTile(leading: Icon(Icons.check_circle_outline, color: mint), title: Text('Ad-free experience')),
-        const SizedBox(height: 12),
-        _button('Preview premium state', () { Navigator.pop(ctx); _snack('Preview only. Real billing is not connected yet.'); }),
-        const SizedBox(height: 10), const Text('Preview only — no payment is taken in this template.', style: TextStyle(fontSize: 11, color: Colors.white54)),
+  Future<void> _initializeBilling() async {
+    try {
+      final available = await billing.isAvailable();
+      if (!mounted) return;
+      setState(() => billingAvailable = available);
+      if (!available) return;
+      const ids = <String>{
+        'sleepwell_premium_monthly',
+        'sleepwell_premium_yearly',
+        'sleepwell_premium_lifetime',
+      };
+      final response = await billing.queryProductDetails(ids);
+      if (!mounted) return;
+      setState(() {
+        premiumProducts = response.productDetails;
+      });
+      if (response.error != null) {
+        _snack('Could not load Premium plans from Google Play.');
+      }
+      if (response.notFoundIDs.isNotEmpty) {
+        _snack('Some Premium products are not configured in Play Console yet.');
+      }
+    } catch (_) {
+      if (mounted) _snack('Google Play Billing is temporarily unavailable.');
+    }
+  }
+
+  Future<void> _onPurchaseUpdates(List<PurchaseDetails> purchases) async {
+    for (final purchase in purchases) {
+      if (purchase.status == PurchaseStatus.pending) {
+        if (mounted) setState(() => purchaseBusy = true);
+      } else if (purchase.status == PurchaseStatus.error) {
+        if (mounted) {
+          setState(() {
+            purchaseBusy = false;
+            selectedPremiumPlan = null;
+          });
+          _snack(purchase.error?.message ?? 'Purchase could not be completed.');
+        }
+      } else if (purchase.status == PurchaseStatus.purchased ||
+          purchase.status == PurchaseStatus.restored) {
+        // Google Play purchase events grant the in-app entitlement. For production,
+        // verify purchase tokens with a trusted backend before granting access.
+        if (premiumProductNames.containsKey(purchase.productID) && mounted) {
+          setState(() {
+            premiumActive = true;
+            purchaseBusy = false;
+            selectedPremiumPlan = null;
+          });
+          _snack('SleepWell Premium is active. Thank you!');
+        }
+      } else if (purchase.status == PurchaseStatus.canceled && mounted) {
+        setState(() {
+          purchaseBusy = false;
+          selectedPremiumPlan = null;
+        });
+      }
+
+      if (purchase.pendingCompletePurchase) {
+        await billing.completePurchase(purchase);
+      }
+    }
+  }
+
+  Future<void> _buyPremium(ProductDetails product) async {
+    if (purchaseBusy) return;
+    setState(() {
+      purchaseBusy = true;
+      selectedPremiumPlan = product.id;
+    });
+    try {
+      final param = PurchaseParam(productDetails: product);
+      // Non-consumable purchase flow is also used for Google Play subscriptions.
+      await billing.buyNonConsumable(purchaseParam: param);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          purchaseBusy = false;
+          selectedPremiumPlan = null;
+        });
+        _snack('Could not start Google Play checkout. Please try again.');
+      }
+    }
+  }
+
+  Future<void> _restorePremium() async {
+    if (!billingAvailable || purchaseBusy) return;
+    setState(() => purchaseBusy = true);
+    try {
+      await billing.restorePurchases();
+      if (mounted) {
+        setState(() => purchaseBusy = false);
+        _snack('Checking purchases linked to your Google Play account…');
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => purchaseBusy = false);
+        _snack('Could not restore purchases. Please try again.');
+      }
+    }
+  }
+
+  Widget _premiumPlanCard(String id, String fallbackTitle, String description, IconData icon) {
+    ProductDetails? product;
+    for (final item in premiumProducts) {
+      if (item.id == id) {
+        product = item;
+        break;
+      }
+    }
+    final title = product?.title.isNotEmpty == true ? product!.title : fallbackTitle;
+    final price = product?.price ?? 'Price set in Google Play';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF20294B),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: id == 'sleepwell_premium_yearly' ? lilac : Colors.white12),
+      ),
+      child: Row(children: [
+        Icon(icon, color: lilac, size: 28),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(height: 3),
+          Text(description, style: const TextStyle(color: Colors.white60, fontSize: 12)),
+          const SizedBox(height: 5),
+          Text(price, style: const TextStyle(color: lilac, fontWeight: FontWeight.w700)),
+        ])),
+        const SizedBox(width: 8),
+        SizedBox(
+          height: 40,
+          child: FilledButton(
+            onPressed: product == null || purchaseBusy || premiumActive
+                ? null
+                : () => _buyPremium(product!),
+            child: purchaseBusy && selectedPremiumPlan == id
+                ? const SizedBox(width: 17, height: 17, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Choose'),
+          ),
+        ),
       ]),
-    ));
+    );
+  }
+
+  void _premium() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: card,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, updateSheet) => Padding(
+          padding: EdgeInsets.fromLTRB(22, 12, 22, 24 + MediaQuery.of(ctx).viewInsets.bottom),
+          child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.nights_stay_rounded, size: 48, color: lilac),
+            const SizedBox(height: 10),
+            const Text('SleepWell Premium', style: TextStyle(fontSize: 25, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 6),
+            const Text('A calmer bedtime, with every premium feature.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white60)),
+            const SizedBox(height: 16),
+            const ListTile(dense: true, leading: Icon(Icons.check_circle_outline, color: mint), title: Text('Full relaxation library')),
+            const ListTile(dense: true, leading: Icon(Icons.check_circle_outline, color: mint), title: Text('More custom routine options')),
+            const ListTile(dense: true, leading: Icon(Icons.check_circle_outline, color: mint), title: Text('Ad-free experience')),
+            const SizedBox(height: 12),
+            if (premiumActive)
+              const ListTile(leading: Icon(Icons.verified, color: mint), title: Text('Premium is active on this device'))
+            else if (!billingAvailable)
+              const Padding(padding: EdgeInsets.all(12), child: Text('Google Play Billing is not available. Install this app from a Play testing track to purchase.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white70)))
+            else ...[
+              _premiumPlanCard('sleepwell_premium_monthly', 'Monthly', 'Auto-renews every month', Icons.calendar_month),
+              _premiumPlanCard('sleepwell_premium_yearly', 'Yearly', 'Auto-renews every year', Icons.calendar_today),
+              _premiumPlanCard('sleepwell_premium_lifetime', 'Lifetime', 'One-time payment • permanent access', Icons.workspace_premium),
+              if (premiumProducts.isEmpty)
+                const Padding(padding: EdgeInsets.all(8), child: Text('Plans will appear here after their product IDs are created and activated in Play Console.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white54, fontSize: 12))),
+            ],
+            const SizedBox(height: 8),
+            TextButton(onPressed: purchaseBusy ? null : _restorePremium, child: const Text('Restore purchases')),
+            const SizedBox(height: 4),
+            const Text('Subscriptions renew automatically until canceled in Google Play. Manage or cancel them in Play Store settings.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white54, fontSize: 10)),
+          ])),
+        ),
+      ),
+    );
   }
 
   void _editDiaryEntry(Map<String, dynamic> entry) {
