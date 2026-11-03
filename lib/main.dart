@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -285,6 +286,9 @@ class _SleepShellState extends State<SleepShell> {
   Timer? breathingTimer;
   int breathingSecondsRemaining = 60;
   bool breathingActive = false;
+  final AudioPlayer ambientPlayer = AudioPlayer();
+  PlayerState ambientPlayerState = PlayerState.stopped;
+  String? activeAmbient;
   int tab = 0;
   int quality = 3;
   int mood = 1;
@@ -804,6 +808,54 @@ class _SleepShellState extends State<SleepShell> {
     const SizedBox(height: 10), _outline('Add a custom step', _addStep),
   ]));
 
+  Widget _ambientTile(String title, String subtitle, IconData icon, String url) {
+    final selected = activeAmbient == title;
+    final playing = selected && ambientPlayerState == PlayerState.playing;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: _decoration(),
+      child: ListTile(
+        leading: Icon(icon, color: lilac, size: 28),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+        subtitle: Text(selected && ambientPlayerState == PlayerState.completed ? 'Finished' : subtitle),
+        trailing: IconButton(
+          tooltip: playing ? 'Pause $title' : 'Play $title',
+          icon: Icon(playing ? Icons.pause_circle_filled : Icons.play_circle_fill, color: lilac, size: 36),
+          onPressed: () => _playAmbient(title, url),
+        ),
+        onTap: () => _playAmbient(title, url),
+      ),
+    );
+  }
+
+  Future<void> _playAmbient(String title, String url) async {
+    try {
+      if (activeAmbient == title && ambientPlayerState == PlayerState.playing) {
+        await ambientPlayer.pause();
+        return;
+      }
+      if (activeAmbient == title && ambientPlayerState == PlayerState.paused) {
+        await ambientPlayer.resume();
+        return;
+      }
+      setState(() {
+        activeAmbient = title;
+        ambientPlayerState = PlayerState.playing;
+      });
+      await ambientPlayer.stop();
+      await ambientPlayer.setReleaseMode(ReleaseMode.loop);
+      await ambientPlayer.play(UrlSource(url));
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          activeAmbient = null;
+          ambientPlayerState = PlayerState.stopped;
+        });
+        _snack('Audio could not be loaded. Please check your internet connection and try again.');
+      }
+    }
+  }
+
   Widget _relax() => _shell(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     const Text('Relax & unwind', style: TextStyle(fontSize: 27, fontWeight: FontWeight.w800)),
     const SizedBox(height: 8),
@@ -825,10 +877,22 @@ class _SleepShellState extends State<SleepShell> {
       ])),
     const SizedBox(height: 24),
     const Text('Sound library', style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
+    const SizedBox(height: 6),
+    const Text('Choose a sound. It loops until you pause or choose another.', style: TextStyle(color: Colors.white60, fontSize: 12)),
     const SizedBox(height: 12),
-    _action(Icons.water, 'Gentle ocean', 'Ambient audio is planned for the next audio milestone', () => _snack('Ocean audio needs a licensed audio track before playback can be enabled.')),
-    _action(Icons.park_outlined, 'Quiet forest', 'Nature ambience', () => _snack('Forest audio needs a licensed audio track before playback can be enabled.')),
-    _action(Icons.grain, 'Soft rain', 'Rain ambience', () => _snack('Rain audio needs a licensed audio track before playback can be enabled.')),
+    _ambientTile('Gentle ocean', 'Ocean waves • loops', Icons.water, 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Ocean_Waves_on_a_Tropical_Beach.ogg'),
+    _ambientTile('Quiet forest', 'Forest ambience • loops', Icons.park_outlined, 'https://commons.wikimedia.org/wiki/Special:Redirect/file/20090610_0_ambience.ogg'),
+    _ambientTile('Soft rain', 'Rainfall • loops', Icons.grain, 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Rain.ogg'),
+    const SizedBox(height: 6),
+    Row(children: [
+      Expanded(child: Text(activeAmbient == null ? 'Nothing playing' : '${ambientPlayerState == PlayerState.playing ? 'Playing' : ambientPlayerState == PlayerState.paused ? 'Paused' : 'Stopped'}: $activeAmbient', style: const TextStyle(color: Colors.white70))),
+      TextButton.icon(onPressed: activeAmbient == null ? null : () async {
+        await ambientPlayer.stop();
+        if (mounted) setState(() { activeAmbient = null; ambientPlayerState = PlayerState.stopped; });
+      }, icon: const Icon(Icons.stop), label: const Text('Stop')),
+    ]),
+    const SizedBox(height: 8),
+    const Text('Audio recordings: public-domain / CC0 sources from Wikimedia Commons.', style: TextStyle(color: Colors.white38, fontSize: 10)),
   ]));
 
   Widget _diary() => _shell(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
