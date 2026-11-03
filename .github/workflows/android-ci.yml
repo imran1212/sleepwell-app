@@ -80,12 +80,12 @@ jobs:
           if not p.exists():
               raise SystemExit("Expected Kotlin Gradle app file was not generated")
           s = p.read_text()
-          s = s.replace('namespace = "com.example.sleepwell_app"', 'namespace = "com.svsytem.sleepwell.app"')
-          s = s.replace('applicationId = "com.example.sleepwell_app"', 'applicationId = "com.svsytem.sleepwell.app"')
+          s = s.replace('namespace = "com.example.sleepwell_app"', 'namespace = "com.svsystem.sleepwell.app"')
+          s = s.replace('applicationId = "com.example.sleepwell_app"', 'applicationId = "com.svsystem.sleepwell.app"')
           p.write_text(s)
-          if 'applicationId = "com.svsytem.sleepwell.app"' not in s:
+          if 'applicationId = "com.svsystem.sleepwell.app"' not in s:
               raise SystemExit("Could not set the new Android applicationId")
-          print("Android namespace/applicationId set to com.svsytem.sleepwell.app")
+          print("Android namespace/applicationId set to com.svsystem.sleepwell.app")
           PYID
           # Pin Android toolchain for the current Kotlin DSL scaffold.
           if [ -f android/settings.gradle.kts ]; then
