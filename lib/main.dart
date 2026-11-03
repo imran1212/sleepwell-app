@@ -291,6 +291,7 @@ class _SleepShellState extends State<SleepShell> {
   String bedtime = '10:30 PM';
   final note = TextEditingController();
   final List<Map<String, dynamic>> diaryEntries = [];
+  String? editingDiaryDate;
   final Map<String, int> dailyCompletions = {};
   late List<RoutineStep> steps = <RoutineStep>[
     RoutineStep('Put your phone away', 'Give your mind a screen break', Icons.phone_iphone),
@@ -846,7 +847,49 @@ class _SleepShellState extends State<SleepShell> {
     const SizedBox(height: 24), const Text('A note for yourself (optional)', style: TextStyle(fontWeight: FontWeight.w600)),
     const SizedBox(height: 10),
     TextField(controller: note, maxLines: 4, decoration: InputDecoration(hintText: 'What would you like to remember?', filled: true, fillColor: card, border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none))),
-    const SizedBox(height: 20), _button('Save check-in', _saveDiaryEntry),
+    const SizedBox(height: 20),
+    _button(editingDiaryDate == null ? 'Save check-in' : 'Update check-in', _saveDiaryEntry),
+    if (editingDiaryDate != null) ...[
+      const SizedBox(height: 8),
+      Center(child: TextButton(
+        onPressed: () => setState(() {
+          editingDiaryDate = null;
+          quality = 3;
+          mood = 1;
+          note.clear();
+        }),
+        child: const Text('Cancel editing'),
+      )),
+    ],
+    const SizedBox(height: 24),
+    const Text('Saved check-ins', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+    const SizedBox(height: 10),
+    if (diaryEntries.isEmpty)
+      const Text('No saved check-ins yet. Your entries will appear here after you save one.', style: TextStyle(color: Colors.white60))
+    else
+      ...([...diaryEntries]..sort((a, b) => (b['date'] as String).compareTo(a['date'] as String))).map((entry) {
+        final date = entry['date'] as String? ?? '';
+        const faces = ['😴', '😕', '😐', '🙂', '😊'];
+        const energies = ['Tired', 'Okay', 'Energised'];
+        final q = (entry['quality'] as int? ?? 3).clamp(1, 5);
+        final m = (entry['mood'] as int? ?? 1).clamp(0, 2);
+        final selected = editingDiaryDate == date;
+        return Card(
+          color: selected ? violet.withValues(alpha: .22) : card,
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            leading: Text(faces[q - 1], style: const TextStyle(fontSize: 26)),
+            title: Text(date, style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text('${energies[m]} energy • ${(entry['note'] as String? ?? '').isEmpty ? 'No note' : entry['note']}'),
+            trailing: IconButton(
+              tooltip: 'Edit check-in',
+              icon: const Icon(Icons.edit_outlined, color: lilac),
+              onPressed: () => _editDiaryEntry(entry),
+            ),
+            onTap: () => _editDiaryEntry(entry),
+          ),
+        );
+      }),
     const SizedBox(height: 14), const Text('For personal reflection, not medical diagnosis.', style: TextStyle(fontSize: 12, color: Colors.white54)),
   ]));
 
@@ -972,25 +1015,37 @@ class _SleepShellState extends State<SleepShell> {
     ));
   }
 
+  void _editDiaryEntry(Map<String, dynamic> entry) {
+    setState(() {
+      editingDiaryDate = entry['date'] as String?;
+      quality = (entry['quality'] as int? ?? 3).clamp(1, 5);
+      mood = (entry['mood'] as int? ?? 1).clamp(0, 2);
+      note.text = entry['note'] as String? ?? '';
+      tab = 3;
+    });
+  }
+
   Future<void> _saveDiaryEntry() async {
+    final targetDate = editingDiaryDate ?? todayKey;
     final entry = <String, dynamic>{
-      'date': todayKey,
+      'date': targetDate,
       'quality': quality,
       'mood': mood,
       'note': note.text.trim(),
       'savedAt': DateTime.now().toIso8601String(),
     };
-    final existingIndex = diaryEntries.indexWhere((e) => e['date'] == todayKey);
+    final existingIndex = diaryEntries.indexWhere((e) => e['date'] == targetDate);
     setState(() {
       if (existingIndex >= 0) {
         diaryEntries[existingIndex] = entry;
       } else {
         diaryEntries.add(entry);
       }
+      editingDiaryDate = null;
     });
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('sleep_diary_v1', jsonEncode(diaryEntries));
-    if (mounted) _snack('Sleep diary saved on this device.');
+    if (mounted) _snack(existingIndex >= 0 ? 'Sleep diary entry updated.' : 'Sleep diary entry saved on this device.');
   }
 
   void _snack(String message) {
