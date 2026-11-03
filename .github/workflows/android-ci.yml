@@ -190,8 +190,50 @@ jobs:
               raise SystemExit("Desugaring dependency insertion failed")
           PY
 
-      - name: Build debug APK
-        run: flutter build apk --debug
+      - name: Configure release signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64" || { echo "Missing ANDROID_KEYSTORE_BASE64 secret"; exit 1; }
+          test -n "$ANDROID_KEYSTORE_PASSWORD" || { echo "Missing ANDROID_KEYSTORE_PASSWORD secret"; exit 1; }
+          test -n "$ANDROID_KEY_ALIAS" || { echo "Missing ANDROID_KEY_ALIAS secret"; exit 1; }
+          test -n "$ANDROID_KEY_PASSWORD" || { echo "Missing ANDROID_KEY_PASSWORD secret"; exit 1; }
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/sleepwell-upload.jks"
+          export SLEEPWELL_KEYSTORE_PATH="$RUNNER_TEMP/sleepwell-upload.jks"
+          python3 - <<'PYSIGN'
+          from pathlib import Path
+          p = Path("android/app/build.gradle.kts")
+          s = p.read_text()
+          signing = """
+          signingConfigs {
+              create("release") {
+                  storeFile = file(System.getenv("SLEEPWELL_KEYSTORE_PATH"))
+                  storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                  keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                  keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+              }
+          }
+          """
+          if "signingConfigs {" not in s:
+              s = s.replace("    buildTypes {", signing + "\\n    buildTypes {", 1)
+          s = s.replace(
+              'getByName("release") {',
+              'getByName("release") {\\n            signingConfig = signingConfigs.getByName("release")',
+              1,
+          )
+          p.write_text(s)
+          print("Configured release signing from GitHub Actions secrets.")
+          PYSIGN
+        shell: bash
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Build release Android App Bundle
+        run: flutter build appbundle --release
 
       - name: Print debug signing certificate SHA-1
         run: |
