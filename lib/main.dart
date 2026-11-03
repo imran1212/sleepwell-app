@@ -911,9 +911,25 @@ class _SleepShellState extends State<SleepShell> {
     const SizedBox(height: 6),
     const Text('Choose a sound. It loops until you pause or choose another.', style: TextStyle(color: Colors.white60, fontSize: 12)),
     const SizedBox(height: 12),
+    if (premiumActive) ...[
     _ambientTile('Gentle ocean', 'Ocean waves • loops', Icons.water, 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Ocean_Waves_on_a_Tropical_Beach.ogg'),
     _ambientTile('Quiet forest', 'Forest ambience • loops', Icons.park_outlined, 'https://commons.wikimedia.org/wiki/Special:Redirect/file/20090610_0_ambience.ogg'),
     _ambientTile('Soft rain', 'Rainfall • loops', Icons.grain, 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Rain.ogg'),
+    ] else
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: _decoration(),
+        child: Column(children: [
+          const Icon(Icons.lock_outline, color: lilac, size: 30),
+          const SizedBox(height: 8),
+          const Text('Premium sound library', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(height: 5),
+          const Text('Unlock ocean, forest and rain ambience with SleepWell Premium.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white60, fontSize: 12)),
+          const SizedBox(height: 12),
+          _button('Explore Premium plans', _premium),
+        ]),
+      ),
     const SizedBox(height: 6),
     Row(children: [
       Expanded(child: Text(activeAmbient == null ? 'Nothing playing' : '${ambientPlayerState == PlayerState.playing ? 'Playing' : ambientPlayerState == PlayerState.paused ? 'Paused' : 'Stopped'}: $activeAmbient', style: const TextStyle(color: Colors.white70))),
@@ -1063,6 +1079,11 @@ class _SleepShellState extends State<SleepShell> {
   Widget _outline(String label, VoidCallback action) => SizedBox(width: double.infinity, height: 50, child: OutlinedButton(onPressed: action, style: OutlinedButton.styleFrom(foregroundColor: lilac, side: const BorderSide(color: Color(0xFF49466F)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), child: Text(label)));
 
   void _addStep() {
+    if (!premiumActive) {
+      _premium();
+      _snack('Custom routine steps are a SleepWell Premium feature.');
+      return;
+    }
     final controller = TextEditingController();
     showDialog(context: context, builder: (ctx) => AlertDialog(backgroundColor: card, title: const Text('Add a routine step'),
       content: TextField(controller: controller, autofocus: true, maxLength: 50, decoration: const InputDecoration(hintText: 'e.g. Prepare for tomorrow')),
@@ -1115,6 +1136,8 @@ class _SleepShellState extends State<SleepShell> {
       if (response.notFoundIDs.isNotEmpty) {
         _snack('Some Premium products are not configured in Play Console yet.');
       }
+      // Ask Google Play to re-deliver any active subscription or lifetime purchase.
+      await billing.restorePurchases();
     } catch (_) {
       if (mounted) _snack('Google Play Billing is temporarily unavailable.');
     }
@@ -1257,7 +1280,8 @@ class _SleepShellState extends State<SleepShell> {
             const SizedBox(height: 16),
             const ListTile(dense: true, leading: Icon(Icons.check_circle_outline, color: mint), title: Text('Full relaxation library')),
             const ListTile(dense: true, leading: Icon(Icons.check_circle_outline, color: mint), title: Text('More custom routine options')),
-            const ListTile(dense: true, leading: Icon(Icons.check_circle_outline, color: mint), title: Text('Ad-free experience')),
+            const ListTile(dense: true, leading: Icon(Icons.check_circle_outline, color: mint), title: Text('Ocean, forest and rain sound library')),
+            const ListTile(dense: true, leading: Icon(Icons.check_circle_outline, color: mint), title: Text('Custom bedtime routine steps')),
             const SizedBox(height: 12),
             if (premiumActive)
               const ListTile(leading: Icon(Icons.verified, color: mint), title: Text('Premium is active on this device'))
