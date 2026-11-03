@@ -73,6 +73,20 @@ jobs:
               p.write_text(s)
           print("Configured Google test AdMob Application ID inside the application element.")
           PYADS
+          # Set the Play Console package name consistently for the generated Android app.
+          python3 - <<'PYID'
+          from pathlib import Path
+          p = Path("android/app/build.gradle.kts")
+          if not p.exists():
+              raise SystemExit("Expected Kotlin Gradle app file was not generated")
+          s = p.read_text()
+          s = s.replace('namespace = "com.example.sleepwell_app"', 'namespace = "com.svsytem.sleepwell.app"')
+          s = s.replace('applicationId = "com.example.sleepwell_app"', 'applicationId = "com.svsytem.sleepwell.app"')
+          p.write_text(s)
+          if 'applicationId = "com.svsytem.sleepwell.app"' not in s:
+              raise SystemExit("Could not set the new Android applicationId")
+          print("Android namespace/applicationId set to com.svsytem.sleepwell.app")
+          PYID
           # Pin Android toolchain for the current Kotlin DSL scaffold.
           if [ -f android/settings.gradle.kts ]; then
             sed -i 's/id("com.android.application") version "[^"]*"/id("com.android.application") version "8.12.1"/' android/settings.gradle.kts
