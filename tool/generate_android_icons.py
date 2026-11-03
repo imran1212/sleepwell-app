@@ -68,7 +68,9 @@ for density, px in {"mdpi":48, "hdpi":72, "xhdpi":96, "xxhdpi":144, "xxxhdpi":19
 
 # Adaptive icon foreground: transparent canvas, with content kept inside safe zone.
 fg = Image.new("RGBA", (432,432), (0,0,0,0))
-draw_mark(fg, offset=(0,0))
+mark = Image.new("RGBA", (284,284), (0,0,0,0))
+draw_mark(mark)
+fg.alpha_composite(mark, (74,74))
 (ROOT / "drawable-nodpi").mkdir(parents=True, exist_ok=True)
 fg.save(ROOT / "drawable-nodpi" / "sleepwell_launcher_foreground.png", optimize=True)
 
